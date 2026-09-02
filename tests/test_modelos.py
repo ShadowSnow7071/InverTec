@@ -1,7 +1,7 @@
 from decimal import Decimal
 
-from app.extensions import db
-from app.models import (
+from backend.conexion import db
+from backend.modelos import (
     Accion,
     Movimiento,
     Portafolio,
