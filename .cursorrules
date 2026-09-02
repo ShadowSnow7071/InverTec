@@ -1,0 +1,26 @@
+# Reglas del proyecto InverTec (guardar como .cursor/rules/invertec.mdc o .cursorrules)
+
+Este es un proyecto escolar individual (Tecmilenio, Ingeniería de Software).
+Antes de sugerir cambios grandes de arquitectura, revisa estos archivos del repo:
+- TECH_STACK.md — stack tecnológico y justificación, no proponer alternativas fuera de esta lista
+- DB_SCHEMA.md — modelo de datos, no crear tablas o campos que no estén aquí sin avisar
+- API_CONVENTIONS.md — convenciones de endpoints, seguir el mismo formato para rutas nuevas
+
+## Convenciones de código
+- Backend en Python + Flask, organizado en capas: rutas/vistas, servicios, repositorios (patrón Repository).
+- Acceso a datos siempre vía SQLAlchemy, nunca SQL crudo con f-strings (riesgo de inyección SQL).
+- Autenticación con Flask-JWT-Extended, roles: 'inversionista' y 'administrador'.
+- Frontend: Jinja2 + Bootstrap para todo el sitio, Vue 3 (CDN, sin build) solo en la vista del simulador de riesgo.
+- Nunca usar localStorage en el frontend si en algún momento se prueba en artifacts/sandboxes; en el proyecto real (Flask+Jinja2) esto no aplica.
+
+## Git / GitFlow
+- Ramas: main, develop, feature/*, release/*, hotfix/*.
+- Commits en formato: `feat: agrega autenticación JWT`, `fix: corrige cálculo de riesgo`, `docs: actualiza TECH_STACK.md`.
+- No commitear directo a main ni a develop; siempre vía feature/* + pull request.
+
+## Metodología
+- Kanban en GitHub Projects (no Scrum, no sprints/iteraciones).
+
+## Pruebas
+- pytest, meta de cobertura: 80%+.
+- Escribir pruebas junto con cada función nueva, no dejarlas para el final.
