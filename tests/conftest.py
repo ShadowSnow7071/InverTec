@@ -1,7 +1,7 @@
 import pytest
 
-from app import create_app
-from app.extensions import db
+from backend import create_app
+from backend.conexion import db
 
 
 @pytest.fixture

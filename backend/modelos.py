@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.extensions import db
+from backend.conexion import db
 
 
 class RolUsuario(enum.Enum):

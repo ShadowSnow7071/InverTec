@@ -2,18 +2,32 @@
 
 Simulador de inversión (Tecmilenio) para practicar compras y ventas de acciones con saldo virtual, cálculo de riesgo y roles de inversionista y administrador.
 
-## Flujo de la app
+## Carpetas
 
 ```
-wsgi.py
-  └── create_app()          app/__init__.py
-        ├── config          app/config.py
-        ├── db / migrate     app/extensions.py
-        ├── modelos         app/models.py      → MySQL (tablas del esquema)
-        └── rutas HTML      app/views.py        → templates/
+backend/     Flask: config, modelos, rutas, arranque
+frontend/    plantillas Jinja2 y estáticos (CSS/JS más adelante)
+database/    esquema SQL de referencia + migraciones Alembic
+tests/       pytest
+instance/    local, no se sube a Git (Flask la crea al correr)
 ```
 
-Las capas `services` y `repositories` se agregan cuando haya lógica de negocio (auth, portafolio, simulador). Ahora no existen para no simular un flujo que todavía no corre.
+`instance/` no va dentro de `database/`. Ahí Flask guarda archivos de runtime (por ejemplo un SQLite de prueba). El esquema versionado vive en `database/`.
+
+## Flujo
+
+```
+backend/wsgi.py
+  └── create_app()           backend/__init__.py
+        ├── config           backend/config.py
+        ├── db               backend/conexion.py
+        ├── tablas           backend/modelos.py      → MySQL
+        └── rutas            backend/rutas.py        → frontend/templates/
+```
+
+Migraciones: `database/migrations/` (Alembic). DDL de consulta: `database/esquema.sql`. En local se aplica con `flask db upgrade`, no hace falta ejecutar el `.sql` a mano.
+
+Las capas `services` y `repositories` se agregan cuando haya lógica de negocio.
 
 ## Requisitos
 
@@ -34,30 +48,30 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Edita `.env` con tu `DATABASE_URL` de MySQL, por ejemplo:
-
-```
-DATABASE_URL=mysql+pymysql://usuario:password@localhost:3306/invertec
-```
-
-Crea la base `invertec` en MySQL y aplica migraciones:
+Edita `.env` (en la raíz del repo, no dentro de `backend/`) con tu `DATABASE_URL`.
 
 ```powershell
-$env:FLASK_APP = "wsgi.py"
+$env:FLASK_APP = "backend.wsgi"
 flask db upgrade
 flask run
 ```
 
+Para probar sin MySQL:
+
+```powershell
+$env:FLASK_APP = "backend.wsgi"
+$env:APP_CONFIG = "testing"
+flask run
+```
+
 - Sitio: http://127.0.0.1:5000/
-- Salud del proceso: http://127.0.0.1:5000/health
+- Salud: http://127.0.0.1:5000/health
 
 ## Pruebas
 
 ```powershell
-pytest --cov=app --cov-report=term-missing
+pytest --cov=backend --cov-report=term-missing
 ```
-
-Las pruebas usan SQLite en memoria. El entorno real sigue siendo MySQL.
 
 ## Documentación técnica
 
