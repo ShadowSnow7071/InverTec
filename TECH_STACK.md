@@ -9,8 +9,11 @@ Referencia técnica del stack usado en el proyecto, con versión y justificació
 | Python | 3.12+ | Base del backend. |
 | Flask | 3.x | Da control explícito sobre rutas, servicios y repositorios, sin la capa de "magia" de un framework más grande. |
 | SQLAlchemy | 2.x | ORM para MySQL, permite aplicar el patrón Repository. |
+| Flask-SQLAlchemy | 3.x | Integra SQLAlchemy con el ciclo de vida de Flask. |
 | Flask-JWT-Extended | última estable | Autenticación con JWT y soporte de roles (inversionista/administrador). |
 | Flask-Migrate / Alembic | última estable | Migraciones de esquema controladas por versión. |
+| PyMySQL | última estable | Driver MySQL para SQLAlchemy (`mysql+pymysql://`). |
+| python-dotenv | última estable | Carga de variables desde `.env` en desarrollo local. |
 
 ## Base de datos
 
