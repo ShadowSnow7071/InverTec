@@ -21,13 +21,20 @@ backend/wsgi.py
   └── create_app()           backend/__init__.py
         ├── config           backend/config.py
         ├── db               backend/conexion.py
-        ├── tablas           backend/modelos.py      → MySQL
-        └── rutas            backend/rutas.py        → frontend/templates/
+        ├── tablas           backend/modelos.py
+        ├── repositorios     backend/repositorios/
+        ├── servicios        backend/servicios/
+        ├── api JSON         /api/auth y /api/usuarios
+        └── páginas HTML     /login, /registro, /perfil
 ```
 
 Migraciones: `database/migrations/` (Alembic). DDL de consulta: `database/esquema.sql`. En local se aplica con `flask db upgrade`, no hace falta ejecutar el `.sql` a mano.
 
-Las capas `services` y `repositories` se agregan cuando haya lógica de negocio.
+- Sitio: http://127.0.0.1:5000/
+- Registro: http://127.0.0.1:5000/registro
+- Login: http://127.0.0.1:5000/login
+- Perfil: http://127.0.0.1:5000/perfil
+- Salud: http://127.0.0.1:5000/health
 
 ## Requisitos
 
@@ -65,6 +72,9 @@ flask run
 ```
 
 - Sitio: http://127.0.0.1:5000/
+- Registro: http://127.0.0.1:5000/registro
+- Login: http://127.0.0.1:5000/login
+- Perfil: http://127.0.0.1:5000/perfil
 - Salud: http://127.0.0.1:5000/health
 
 ## Pruebas
