@@ -14,7 +14,9 @@ def create_app(config_name=None):
         instance_path=str(RAIZ / "instance"),
     )
     name = config_name or os.environ.get("APP_CONFIG", "development")
-    app.config.from_object(config_by_name[name])
+    config_cls = config_by_name[name]
+    config_cls.validate()
+    app.config.from_object(config_cls)
 
     db.init_app(app)
     migrate.init_app(app, db, directory=str(RAIZ / "database" / "migrations"))

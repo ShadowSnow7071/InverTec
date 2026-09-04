@@ -1,5 +1,7 @@
+import pytest
 from werkzeug.security import generate_password_hash
 
+from backend.config import Config, TestingConfig
 from backend.conexion import db
 from backend.modelos import Portafolio, RolUsuario, Usuario
 
@@ -137,6 +139,30 @@ def test_registro_password_corta(client):
         json={"nombre": "Ana", "correo": "ana@example.com", "password": "corta"},
     )
     assert respuesta.status_code == 400
+
+
+def test_config_requiere_secretos_validos_fuera_de_testing(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.setattr(Config, "SECRET_KEY", None, raising=False)
+    monkeypatch.setattr(Config, "JWT_SECRET_KEY", None, raising=False)
+    with pytest.raises(RuntimeError, match="SECRET_KEY|JWT_SECRET_KEY"):
+        Config.validate()
+
+    monkeypatch.setattr(Config, "SECRET_KEY", "cambiar-en-desarrollo", raising=False)
+    monkeypatch.setattr(
+        Config,
+        "JWT_SECRET_KEY",
+        "cambiar-jwt-en-desarrollo-min-32-bytes",
+        raising=False,
+    )
+    with pytest.raises(RuntimeError, match="SECRET_KEY|JWT_SECRET_KEY"):
+        Config.validate()
+
+    monkeypatch.setattr(Config, "SECRET_KEY", "a" * 32, raising=False)
+    monkeypatch.setattr(Config, "JWT_SECRET_KEY", "b" * 32, raising=False)
+    Config.validate()
+    TestingConfig.validate()
 
 
 def test_registro_html_redirige_a_perfil(client):
