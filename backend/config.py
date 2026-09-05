@@ -64,6 +64,8 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
+    SECRET_KEY = "test-flask-secret-key-only-for-automated-tests"
+    JWT_SECRET_KEY = "test-jwt-secret-key-only-for-automated-tests"
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
 
