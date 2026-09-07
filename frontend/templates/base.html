@@ -15,6 +15,17 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
         <a class="navbar-brand fw-semibold" href="{{ url_for('main.index') }}">InverTec</a>
+        <div class="ms-auto">
+          {% if usuario_actual %}
+          <a class="btn btn-light btn-sm me-2" href="{{ url_for('main.perfil') }}">Mi portafolio</a>
+          <form class="d-inline" method="post" action="{{ url_for('main.logout') }}">
+            <button class="btn btn-outline-light btn-sm" type="submit">Salir</button>
+          </form>
+          {% else %}
+          <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('main.login_form') }}">Iniciar sesión</a>
+          <a class="btn btn-light btn-sm" href="{{ url_for('main.registro_form') }}">Crear cuenta</a>
+          {% endif %}
+        </div>
       </div>
     </nav>
     <main class="container py-4">

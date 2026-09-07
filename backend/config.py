@@ -11,7 +11,11 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret")
-    JWT_TOKEN_LOCATION = ["headers"]
+    JWT_TOKEN_LOCATION = ["headers", "cookies"]
+    JWT_COOKIE_CSRF_PROTECT = True
+    JWT_CSRF_IN_COOKIES = True
+    JWT_CSRF_CHECK_FORM = True
+    JWT_COOKIE_SAMESITE = "Lax"
     JWT_ACCESS_TOKEN_EXPIRES = 3600
     JWT_REFRESH_TOKEN_EXPIRES = 604800
 
@@ -30,6 +34,7 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+    JWT_COOKIE_SECURE = True
 
 
 config_by_name = {

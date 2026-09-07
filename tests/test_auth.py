@@ -80,3 +80,24 @@ def test_refresh_emite_nuevo_access_token(client):
 
     assert respuesta.status_code == 200
     assert "access_token" in respuesta.get_json()
+
+
+def test_flujo_html_registro_perfil_y_logout(client):
+    registro = client.post(
+        "/registro",
+        data={
+            "nombre": "Luis",
+            "correo": "luis@example.com",
+            "password": "secreto12",
+        },
+        follow_redirects=True,
+    )
+
+    assert registro.status_code == 200
+    assert b"Hola, Luis" in registro.data
+    assert b"10000.00" in registro.data
+
+    logout = client.post("/logout", follow_redirects=True)
+
+    assert logout.status_code == 200
+    assert b"Comenzar" in logout.data

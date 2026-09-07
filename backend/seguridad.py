@@ -10,6 +10,11 @@ def json_error(mensaje: str, codigo: int):
     return jsonify({"error": mensaje}), codigo
 
 
+@jwt.user_lookup_loader
+def cargar_usuario(_jwt_header, jwt_data):
+    return db.session.get(Usuario, int(jwt_data["sub"]))
+
+
 @jwt.unauthorized_loader
 def sin_token(_motivo):
     return json_error("Token requerido", 401)
