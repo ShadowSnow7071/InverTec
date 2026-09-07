@@ -23,10 +23,12 @@ def create_app(config_name=None):
     from backend import modelos  # noqa: F401
     from backend import seguridad  # noqa: F401
     from backend.api_auth import bp as api_auth_bp
+    from backend.api_portafolio import bp as api_portafolio_bp
     from backend.api_usuarios import bp as api_usuarios_bp
     from backend.rutas import bp as main_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_auth_bp)
+    app.register_blueprint(api_portafolio_bp)
     app.register_blueprint(api_usuarios_bp)
     return app
