@@ -1,3 +1,5 @@
+import pytest
+
 from backend.conexion import db
 from backend.modelos import Portafolio, Usuario
 
@@ -67,6 +69,14 @@ def test_login_rechaza_credenciales_invalidas(client):
 
     assert respuesta.status_code == 401
     assert respuesta.get_json() == {"error": "Correo o contraseña incorrectos"}
+
+
+@pytest.mark.parametrize("endpoint", ["/api/auth/registro", "/api/auth/login"])
+def test_auth_rechaza_cuerpo_que_no_es_json(client, endpoint):
+    respuesta = client.post(endpoint, data="nombre=Ana")
+
+    assert respuesta.status_code == 415
+    assert respuesta.get_json() == {"error": "El cuerpo debe ser JSON"}
 
 
 def test_refresh_emite_nuevo_access_token(client):

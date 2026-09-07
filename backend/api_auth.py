@@ -8,9 +8,20 @@ bp = Blueprint("api_auth", __name__, url_prefix="/api/auth")
 servicio = AuthServicio()
 
 
+def _datos_json():
+    if not request.is_json:
+        return None, (jsonify({"error": "El cuerpo debe ser JSON"}), 415)
+    datos = request.get_json(silent=True)
+    if not isinstance(datos, dict):
+        return None, (jsonify({"error": "El cuerpo JSON debe ser un objeto"}), 400)
+    return datos, None
+
+
 @bp.post("/registro")
 def registro():
-    datos = request.get_json(silent=True) or {}
+    datos, error = _datos_json()
+    if error:
+        return error
     try:
         resultado = servicio.registrar(
             datos.get("nombre"), datos.get("correo"), datos.get("password")
@@ -22,7 +33,9 @@ def registro():
 
 @bp.post("/login")
 def login():
-    datos = request.get_json(silent=True) or {}
+    datos, error = _datos_json()
+    if error:
+        return error
     try:
         resultado = servicio.login(datos.get("correo"), datos.get("password"))
     except ErrorNegocio as exc:

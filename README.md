@@ -45,27 +45,37 @@ En Windows (PowerShell):
 ```powershell
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env
 ```
 
-Edita `.env` (en la raíz del repo, no dentro de `backend/`) con tu `DATABASE_URL`.
+### Ejecución rápida
 
 ```powershell
+python run.py
+```
+
+`run.py` inicia una demo local con SQLite en memoria, crea las tablas automáticamente
+y no necesita `.env`, MySQL ni variables de entorno. Los datos se pierden al detener
+la aplicación.
+
+- Sitio: http://127.0.0.1:5000/
+- Salud: http://127.0.0.1:5000/health
+
+### Desarrollo con MySQL
+
+Para conservar los datos y usar MySQL:
+
+1. Copia `.env.example` como `.env` en la raíz del repositorio.
+2. Completa `DATABASE_URL`, `SECRET_KEY` y `JWT_SECRET_KEY`.
+3. Ejecuta las migraciones y arranca Flask:
+
+```powershell
+$env:RUN_CONFIG = "development"
 $env:FLASK_APP = "backend.wsgi"
 flask db upgrade
 flask run
 ```
 
-Para probar sin MySQL:
-
-```powershell
-$env:FLASK_APP = "backend.wsgi"
-$env:APP_CONFIG = "testing"
-flask run
-```
-
-- Sitio: http://127.0.0.1:5000/
-- Salud: http://127.0.0.1:5000/health
+`run.py` es para demo y pruebas locales; para desarrollo persistente usa Flask con MySQL.
 
 ## Pruebas
 

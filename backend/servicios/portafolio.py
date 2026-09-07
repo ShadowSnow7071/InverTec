@@ -1,10 +1,8 @@
-from collections import defaultdict
-from decimal import Decimal
-
-from sqlalchemy import select
+from sqlalchemy import case, func, select
+from sqlalchemy.orm import joinedload
 
 from backend.conexion import db
-from backend.modelos import Movimiento, Portafolio, TipoMovimiento
+from backend.modelos import Accion, Movimiento, Portafolio
 
 
 class PortafolioServicio:
@@ -18,36 +16,49 @@ class PortafolioServicio:
         return {
             "id": portafolio.id,
             "saldo_virtual": str(portafolio.saldo_virtual),
-            "posiciones": self._posiciones(portafolio),
+            "posiciones": self._posiciones(portafolio.id),
         }
 
     def listar_movimientos(self, usuario_id: int):
         movimientos = db.session.scalars(
             select(Movimiento)
             .join(Movimiento.portafolio)
+            .options(joinedload(Movimiento.accion))
             .where(Portafolio.usuario_id == usuario_id)
             .order_by(Movimiento.fecha.desc(), Movimiento.id.desc())
         ).all()
         return [self._movimiento_dict(movimiento) for movimiento in movimientos]
 
     @staticmethod
-    def _posiciones(portafolio):
-        acumulado = defaultdict(lambda: Decimal("0"))
-        acciones = {}
-        for movimiento in portafolio.movimientos:
-            signo = Decimal("1") if movimiento.tipo == TipoMovimiento.compra else Decimal("-1")
-            acumulado[movimiento.accion_id] += signo * movimiento.cantidad
-            acciones[movimiento.accion_id] = movimiento.accion
+    def _posiciones(portafolio_id):
+        cantidad_neta = func.sum(
+            case(
+                (Movimiento.tipo == "compra", Movimiento.cantidad),
+                else_=-Movimiento.cantidad,
+            )
+        ).label("cantidad")
+        filas = db.session.execute(
+            select(
+                Accion.id,
+                Accion.ticker,
+                Accion.nombre_empresa,
+                cantidad_neta,
+            )
+            .join(Movimiento, Movimiento.accion_id == Accion.id)
+            .where(Movimiento.portafolio_id == portafolio_id)
+            .group_by(Accion.id, Accion.ticker, Accion.nombre_empresa)
+            .having(cantidad_neta > 0)
+            .order_by(Accion.id)
+        )
 
         return [
             {
                 "accion_id": accion_id,
-                "ticker": acciones[accion_id].ticker,
-                "nombre_empresa": acciones[accion_id].nombre_empresa,
+                "ticker": ticker,
+                "nombre_empresa": nombre_empresa,
                 "cantidad": str(cantidad),
             }
-            for accion_id, cantidad in sorted(acumulado.items())
-            if cantidad > 0
+            for accion_id, ticker, nombre_empresa, cantidad in filas
         ]
 
     @staticmethod
