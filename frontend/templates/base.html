@@ -15,9 +15,48 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
         <a class="navbar-brand fw-semibold" href="{{ url_for('main.index') }}">InverTec</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#menu"
+          aria-controls="menu"
+          aria-expanded="false"
+          aria-label="Menú"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="menu">
+          <ul class="navbar-nav ms-auto">
+            {% if usuario_actual %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('main.perfil') }}">Perfil</a>
+            </li>
+            <li class="nav-item">
+              <form class="d-inline" method="post" action="{{ url_for('main.logout') }}">
+                <button class="btn btn-link nav-link" type="submit">Salir</button>
+              </form>
+            </li>
+            {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('main.login_form') }}">Iniciar sesión</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('main.registro_form') }}">Registro</a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
       </div>
     </nav>
     <main class="container py-4">
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% if mensajes %}
+          {% for categoria, texto in mensajes %}
+            <div class="alert alert-{{ categoria }}" role="alert">{{ texto }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
       {% block content %}{% endblock %}
     </main>
     <script

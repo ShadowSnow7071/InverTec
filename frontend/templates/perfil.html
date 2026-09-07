@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Perfil — InverTec{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Mi perfil</h1>
+<dl class="row">
+  <dt class="col-sm-3">Nombre</dt>
+  <dd class="col-sm-9">{{ usuario_actual.nombre }}</dd>
+  <dt class="col-sm-3">Correo</dt>
+  <dd class="col-sm-9">{{ usuario_actual.correo }}</dd>
+  <dt class="col-sm-3">Rol</dt>
+  <dd class="col-sm-9">{{ usuario_actual.rol.value }}</dd>
+</dl>
+{% endblock %}

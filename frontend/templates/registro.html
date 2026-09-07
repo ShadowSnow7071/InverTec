@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Registro — InverTec{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <h1 class="h3 mb-3">Crear cuenta</h1>
+    <form method="post" action="{{ url_for('main.registro_form') }}">
+      <div class="mb-3">
+        <label class="form-label" for="nombre">Nombre</label>
+        <input class="form-control" id="nombre" name="nombre" required maxlength="120" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="correo">Correo</label>
+        <input class="form-control" id="correo" name="correo" type="email" required maxlength="150" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">Contraseña</label>
+        <input class="form-control" id="password" name="password" type="password" required minlength="8" />
+      </div>
+      <button class="btn btn-primary" type="submit">Registrarme</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
