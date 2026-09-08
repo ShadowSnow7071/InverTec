@@ -90,6 +90,78 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
     assert respuesta.get_json()[0]["riesgo_calculado"] == "25.00"
 
 
+def test_compra_actualiza_saldo_y_movimiento(client, app):
+    token = registrar_y_obtener_token(client, "compra@example.com")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "2", "precio_unitario": "150.00"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["saldo_virtual"] == "9700.00"
+    assert cuerpo["posiciones"][0]["ticker"] == "AAPL"
+    assert cuerpo["posiciones"][0]["cantidad"] == "2.0000"
+    assert cuerpo["movimientos"][0]["tipo"] == "compra"
+
+
+def test_venta_actualiza_saldo_y_movimiento(client, app):
+    token = registrar_y_obtener_token(client, "venta@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        accion = Accion(ticker="MSFT", nombre_empresa="Microsoft")
+        db.session.add(accion)
+        db.session.flush()
+        db.session.add(
+            Movimiento(
+                portafolio_id=usuario.portafolio.id,
+                accion_id=accion.id,
+                tipo=TipoMovimiento.compra,
+                cantidad=Decimal("3.0000"),
+                precio_unitario=Decimal("100.00"),
+            )
+        )
+        db.session.commit()
+
+    respuesta = client.post(
+        "/api/portafolio/vender",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "MSFT", "cantidad": "1.5000", "precio_unitario": "110.00"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["saldo_virtual"] == "10165.00"
+    assert cuerpo["posiciones"][0]["cantidad"] == "1.5000"
+    assert cuerpo["movimientos"][0]["tipo"] == "venta"
+
+
+def test_api_acciones_devuelve_catalogo_publico(client):
+    respuesta = client.get("/api/acciones")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert any(item["ticker"] == "AAPL" for item in cuerpo)
+    assert all("precio_actual" in item for item in cuerpo)
+
+
+def test_riesgo_movimiento_retorna_escala_valida(client, app):
+    token = registrar_y_obtener_token(client, "riesgo@example.com")
+
+    respuesta = client.post(
+        "/api/portafolio/movimientos/riesgo",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "2", "precio_unitario": "150.00"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["ticker"] == "AAPL"
+    assert 0 <= float(cuerpo["riesgo_calculado"]) <= 100
+
+
 def test_portafolio_requiere_autenticacion(client):
     respuesta = client.get("/api/portafolio")
 
