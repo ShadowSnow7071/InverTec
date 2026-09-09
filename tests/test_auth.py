@@ -106,6 +106,10 @@ def test_flujo_html_registro_perfil_y_logout(client):
     assert registro.status_code == 200
     assert b"Hola, Luis" in registro.data
     assert b"10000.00" in registro.data
+    assert b"AAPL" in registro.data
+    assert b"Apple Inc." in registro.data
+    assert b"Simular operaci\xc3\xb3n" in registro.data
+    assert b"Consultar riesgo" in registro.data
 
     logout = client.post("/logout", follow_redirects=True)
 
