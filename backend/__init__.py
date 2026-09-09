@@ -14,7 +14,9 @@ def create_app(config_name=None):
         instance_path=str(RAIZ / "instance"),
     )
     name = config_name or os.environ.get("APP_CONFIG", "development")
-    app.config.from_object(config_by_name[name])
+    config_cls = config_by_name[name]
+    config_cls.validate()
+    app.config.from_object(config_cls)
 
     db.init_app(app)
     migrate.init_app(app, db, directory=str(RAIZ / "database" / "migrations"))
@@ -33,4 +35,15 @@ def create_app(config_name=None):
     app.register_blueprint(api_acciones_bp)
     app.register_blueprint(api_portafolio_bp)
     app.register_blueprint(api_usuarios_bp)
+
+    from flask_jwt_extended import current_user, verify_jwt_in_request
+
+    @app.context_processor
+    def inyectar_usuario():
+        try:
+            verify_jwt_in_request(optional=True)
+        except Exception:
+            return {"usuario_actual": None}
+        return {"usuario_actual": current_user}
+
     return app
