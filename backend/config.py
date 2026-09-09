@@ -40,18 +40,12 @@ class Config:
 
         secret_key = os.environ.get("SECRET_KEY") or cls.SECRET_KEY
         jwt_secret_key = os.environ.get("JWT_SECRET_KEY") or cls.JWT_SECRET_KEY
-
         issues = []
         for nombre, valor in {"SECRET_KEY": secret_key, "JWT_SECRET_KEY": jwt_secret_key}.items():
-            if not valor:
+            if not valor or valor in cls._PLACEHOLDER_VALUES or len(valor) < 32:
                 issues.append(nombre)
-                continue
-            if valor in cls._PLACEHOLDER_VALUES or len(valor) < 32:
-                issues.append(nombre)
-
         if secret_key and jwt_secret_key and secret_key == jwt_secret_key:
             issues.extend(["SECRET_KEY", "JWT_SECRET_KEY"])
-
         if issues:
             raise RuntimeError(
                 "Configuración insegura: define SECRET_KEY y JWT_SECRET_KEY con valores únicos y de al menos 32 caracteres en el archivo .env."
@@ -64,7 +58,7 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    SECRET_KEY = "test-flask-secret-key-only-for-automated-tests"
+    SECRET_KEY = "test-secret-key-only-for-automated-tests"
     JWT_SECRET_KEY = "test-jwt-secret-key-only-for-automated-tests"
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)

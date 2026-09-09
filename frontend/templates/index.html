@@ -8,5 +8,10 @@
   <p class="lead text-muted">
     Simulador de inversión para aprender a gestionar riesgo y recompensa.
   </p>
+  {% if usuario_actual %}
+  <a class="btn btn-primary" href="{{ url_for('main.perfil') }}">Ver mi portafolio</a>
+  {% else %}
+  <a class="btn btn-primary" href="{{ url_for('main.registro_form') }}">Comenzar</a>
+  {% endif %}
 </div>
 {% endblock %}

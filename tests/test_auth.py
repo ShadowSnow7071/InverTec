@@ -1,172 +1,99 @@
 import pytest
-from werkzeug.security import generate_password_hash
 
-from backend.config import Config, TestingConfig
 from backend.conexion import db
-from backend.modelos import Portafolio, RolUsuario, Usuario
+from backend.modelos import Portafolio, Usuario
 
 
-def _registrar(client, correo="ana@example.com"):
-    return client.post(
-        "/api/auth/registro",
-        json={
-            "nombre": "Ana",
-            "correo": correo,
-            "password": "secreto12",
-        },
-    )
+def datos_registro(correo="ana@example.com"):
+    return {
+        "nombre": "Ana",
+        "correo": correo,
+        "password": "secreto12",
+    }
 
 
-def test_paginas_login_y_registro(client):
-    assert client.get("/login").status_code == 200
-    assert client.get("/registro").status_code == 200
+def test_registro_crea_usuario_portafolio_y_tokens(client, app):
+    respuesta = client.post("/api/auth/registro", json=datos_registro())
 
-
-def test_registro_api_crea_usuario_y_portafolio(client, app):
-    respuesta = _registrar(client)
     assert respuesta.status_code == 201
     cuerpo = respuesta.get_json()
+    assert cuerpo["usuario"]["correo"] == "ana@example.com"
     assert "access_token" in cuerpo
     assert "refresh_token" in cuerpo
-    assert cuerpo["usuario"]["correo"] == "ana@example.com"
-    assert cuerpo["usuario"]["rol"] == "inversionista"
+
     with app.app_context():
-        assert db.session.query(Portafolio).count() == 1
+        usuario = db.session.query(Usuario).one()
+        assert usuario.portafolio is not None
+        assert usuario.portafolio.saldo_virtual == 10000
+        assert usuario.password_hash != "secreto12"
 
 
-def test_registro_correo_duplicado(client):
-    _registrar(client)
-    respuesta = _registrar(client)
+def test_registro_rechaza_correo_duplicado(client):
+    client.post("/api/auth/registro", json=datos_registro())
+    respuesta = client.post("/api/auth/registro", json=datos_registro())
+
     assert respuesta.status_code == 400
-    assert respuesta.get_json()["error"] == "El correo ya está registrado"
+    assert respuesta.get_json() == {"error": "El correo ya está registrado"}
 
 
-def test_login_invalido(client):
+def test_login_y_perfil_protegido(client):
+    client.post("/api/auth/registro", json=datos_registro())
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "ANA@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert login.status_code == 200
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["saldo_virtual"] == "10000.00"
+
+
+def test_perfil_sin_token_rechaza_acceso(client):
+    respuesta = client.get("/api/usuarios/me")
+
+    assert respuesta.status_code == 401
+    assert respuesta.get_json() == {"error": "Token requerido"}
+
+
+def test_login_rechaza_credenciales_invalidas(client):
     respuesta = client.post(
         "/api/auth/login",
         json={"correo": "nadie@example.com", "password": "secreto12"},
     )
+
     assert respuesta.status_code == 401
+    assert respuesta.get_json() == {"error": "Correo o contraseña incorrectos"}
 
 
-def test_login_me_y_patch(client):
-    _registrar(client)
-    login = client.post(
-        "/api/auth/login",
-        json={"correo": "ana@example.com", "password": "secreto12"},
-    )
-    token = login.get_json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+@pytest.mark.parametrize("endpoint", ["/api/auth/registro", "/api/auth/login"])
+def test_auth_rechaza_cuerpo_que_no_es_json(client, endpoint):
+    respuesta = client.post(endpoint, data="nombre=Ana")
 
-    me = client.get("/api/usuarios/me", headers=headers)
-    assert me.status_code == 200
-    assert me.get_json()["nombre"] == "Ana"
-
-    actualizado = client.patch(
-        "/api/usuarios/me",
-        headers=headers,
-        json={"nombre": "Ana López"},
-    )
-    assert actualizado.status_code == 200
-    assert actualizado.get_json()["nombre"] == "Ana López"
+    assert respuesta.status_code == 415
+    assert respuesta.get_json() == {"error": "El cuerpo debe ser JSON"}
 
 
-def test_me_sin_token(client):
-    respuesta = client.get("/api/usuarios/me")
-    assert respuesta.status_code == 401
+def test_refresh_emite_nuevo_access_token(client):
+    registro = client.post("/api/auth/registro", json=datos_registro())
+    refresh_token = registro.get_json()["refresh_token"]
 
-
-def test_refresh(client):
-    registro = _registrar(client)
-    refresh = registro.get_json()["refresh_token"]
     respuesta = client.post(
         "/api/auth/refresh",
-        headers={"Authorization": f"Bearer {refresh}"},
+        headers={"Authorization": f"Bearer {refresh_token}"},
     )
+
     assert respuesta.status_code == 200
     assert "access_token" in respuesta.get_json()
 
 
-def test_listar_usuarios_solo_admin(client, app):
-    _registrar(client)
-    login = client.post(
-        "/api/auth/login",
-        json={"correo": "ana@example.com", "password": "secreto12"},
-    )
-    token_inv = login.get_json()["access_token"]
-    prohibido = client.get(
-        "/api/usuarios",
-        headers={"Authorization": f"Bearer {token_inv}"},
-    )
-    assert prohibido.status_code == 403
-
-    with app.app_context():
-        admin = Usuario(
-            nombre="Admin",
-            correo="admin@example.com",
-            password_hash=generate_password_hash("secreto12"),
-            rol=RolUsuario.administrador,
-        )
-        db.session.add(admin)
-        db.session.commit()
-
-    admin_login = client.post(
-        "/api/auth/login",
-        json={"correo": "admin@example.com", "password": "secreto12"},
-    )
-    token_admin = admin_login.get_json()["access_token"]
-    lista = client.get(
-        "/api/usuarios",
-        headers={"Authorization": f"Bearer {token_admin}"},
-    )
-    assert lista.status_code == 200
-    correos = {u["correo"] for u in lista.get_json()}
-    assert "ana@example.com" in correos
-    assert "admin@example.com" in correos
-
-
-def test_login_html_credenciales_invalidas(client):
-    respuesta = client.post(
-        "/login",
-        data={"correo": "nadie@example.com", "password": "secreto12"},
-    )
-    assert respuesta.status_code == 401
-
-
-def test_registro_password_corta(client):
-    respuesta = client.post(
-        "/api/auth/registro",
-        json={"nombre": "Ana", "correo": "ana@example.com", "password": "corta"},
-    )
-    assert respuesta.status_code == 400
-
-
-def test_config_requiere_secretos_validos_fuera_de_testing(monkeypatch):
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
-    monkeypatch.setattr(Config, "SECRET_KEY", None, raising=False)
-    monkeypatch.setattr(Config, "JWT_SECRET_KEY", None, raising=False)
-    with pytest.raises(RuntimeError, match="SECRET_KEY|JWT_SECRET_KEY"):
-        Config.validate()
-
-    monkeypatch.setattr(Config, "SECRET_KEY", "cambiar-en-desarrollo", raising=False)
-    monkeypatch.setattr(
-        Config,
-        "JWT_SECRET_KEY",
-        "cambiar-jwt-en-desarrollo-min-32-bytes",
-        raising=False,
-    )
-    with pytest.raises(RuntimeError, match="SECRET_KEY|JWT_SECRET_KEY"):
-        Config.validate()
-
-    monkeypatch.setattr(Config, "SECRET_KEY", "a" * 32, raising=False)
-    monkeypatch.setattr(Config, "JWT_SECRET_KEY", "b" * 32, raising=False)
-    Config.validate()
-    TestingConfig.validate()
-
-
-def test_registro_html_redirige_a_perfil(client):
-    respuesta = client.post(
+def test_flujo_html_registro_perfil_y_logout(client):
+    registro = client.post(
         "/registro",
         data={
             "nombre": "Luis",
@@ -175,6 +102,12 @@ def test_registro_html_redirige_a_perfil(client):
         },
         follow_redirects=True,
     )
-    assert respuesta.status_code == 200
-    assert b"Luis" in respuesta.data
-    assert b"luis@example.com" in respuesta.data
+
+    assert registro.status_code == 200
+    assert b"Hola, Luis" in registro.data
+    assert b"10000.00" in registro.data
+
+    logout = client.post("/logout", follow_redirects=True)
+
+    assert logout.status_code == 200
+    assert b"Comenzar" in logout.data

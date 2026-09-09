@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import current_user, jwt_required, set_access_cookies, set_refresh_cookies
+from flask_jwt_extended import get_jwt_identity, jwt_required, create_access_token
 
 from backend.seguridad import json_error
 from backend.servicios.auth import AuthServicio, ErrorNegocio
@@ -8,42 +8,43 @@ bp = Blueprint("api_auth", __name__, url_prefix="/api/auth")
 servicio = AuthServicio()
 
 
-def _aplicar_cookies(cuerpo: dict, codigo: int = 200):
-    respuesta = jsonify(cuerpo)
-    respuesta.status_code = codigo
-    set_access_cookies(respuesta, cuerpo["access_token"])
-    if "refresh_token" in cuerpo:
-        set_refresh_cookies(respuesta, cuerpo["refresh_token"])
-    return respuesta
+def _datos_json():
+    if not request.is_json:
+        return None, (jsonify({"error": "El cuerpo debe ser JSON"}), 415)
+    datos = request.get_json(silent=True)
+    if not isinstance(datos, dict):
+        return None, (jsonify({"error": "El cuerpo JSON debe ser un objeto"}), 400)
+    return datos, None
 
 
 @bp.post("/registro")
 def registro():
-    datos = request.get_json(silent=True) or {}
+    datos, error = _datos_json()
+    if error:
+        return error
     try:
         resultado = servicio.registrar(
-            datos.get("nombre"),
-            datos.get("correo"),
-            datos.get("password"),
+            datos.get("nombre"), datos.get("correo"), datos.get("password")
         )
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
-    return _aplicar_cookies(resultado, 201)
+    return jsonify(resultado), 201
 
 
 @bp.post("/login")
 def login():
-    datos = request.get_json(silent=True) or {}
+    datos, error = _datos_json()
+    if error:
+        return error
     try:
         resultado = servicio.login(datos.get("correo"), datos.get("password"))
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
-    return _aplicar_cookies(resultado)
+    return jsonify(resultado)
 
 
 @bp.post("/refresh")
 @jwt_required(refresh=True)
 def refresh():
-    if current_user is None:
-        return json_error("Token inválido", 401)
-    return _aplicar_cookies(servicio.renovar(current_user))
+    identidad = get_jwt_identity()
+    return jsonify({"access_token": create_access_token(identity=identidad)})

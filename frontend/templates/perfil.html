@@ -1,15 +1,74 @@
 {% extends "base.html" %}
 
-{% block title %}Perfil — InverTec{% endblock %}
+{% block title %}Mi portafolio | InverTec{% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-3">Mi perfil</h1>
-<dl class="row">
-  <dt class="col-sm-3">Nombre</dt>
-  <dd class="col-sm-9">{{ usuario_actual.nombre }}</dd>
-  <dt class="col-sm-3">Correo</dt>
-  <dd class="col-sm-9">{{ usuario_actual.correo }}</dd>
-  <dt class="col-sm-3">Rol</dt>
-  <dd class="col-sm-9">{{ usuario_actual.rol.value }}</dd>
-</dl>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">Hola, {{ usuario_actual.nombre }}</h1>
+    <p class="text-muted mb-0">{{ usuario_actual.correo }}</p>
+  </div>
+  <span class="badge text-bg-secondary">{{ usuario_actual.rol.value }}</span>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <p class="text-muted mb-1">Saldo virtual</p>
+    <p class="display-6 mb-0">${{ datos_portafolio.saldo_virtual }}</p>
+  </div>
+</div>
+
+<h2 class="h5">Posiciones</h2>
+{% if datos_portafolio.posiciones %}
+<div class="table-responsive mb-4">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Empresa</th>
+        <th class="text-end">Cantidad</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for posicion in datos_portafolio.posiciones %}
+      <tr>
+        <td class="fw-semibold">{{ posicion.ticker }}</td>
+        <td>{{ posicion.nombre_empresa }}</td>
+        <td class="text-end">{{ posicion.cantidad }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted mb-4">Todavía no tienes posiciones.</p>
+{% endif %}
+
+<h2 class="h5">Historial de movimientos</h2>
+{% if movimientos %}
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Ticker</th>
+        <th class="text-end">Cantidad</th>
+        <th class="text-end">Precio</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for movimiento in movimientos %}
+      <tr>
+        <td>{{ movimiento.tipo|capitalize }}</td>
+        <td>{{ movimiento.ticker }}</td>
+        <td class="text-end">{{ movimiento.cantidad }}</td>
+        <td class="text-end">${{ movimiento.precio_unitario }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">Aún no tienes movimientos registrados.</p>
+{% endif %}
 {% endblock %}

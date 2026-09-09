@@ -1,75 +1,68 @@
+import re
+
 from flask_jwt_extended import create_access_token, create_refresh_token
+from sqlalchemy import select
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.conexion import db
-from backend.modelos import RolUsuario, Usuario
-from backend.repositorios.portafolio import PortafolioRepo
-from backend.repositorios.usuario import UsuarioRepo
-from backend.serializar import usuario_publico
+from backend.modelos import Portafolio, Usuario
 
 
 class ErrorNegocio(Exception):
-    def __init__(self, mensaje: str, codigo: int):
-        super().__init__(mensaje)
+    def __init__(self, mensaje: str, codigo: int = 400):
         self.mensaje = mensaje
         self.codigo = codigo
 
 
 class AuthServicio:
-    def __init__(self):
-        self.usuarios = UsuarioRepo()
-        self.portafolios = PortafolioRepo()
-
-    def registrar(self, nombre: str, correo: str, password: str) -> dict:
+    def registrar(self, nombre, correo, password):
         nombre = (nombre or "").strip()
         correo = (correo or "").strip().lower()
-        password = password or ""
-        if not nombre or not correo or not password:
-            raise ErrorNegocio("Nombre, correo y contraseña son obligatorios", 400)
-        if len(password) < 8:
-            raise ErrorNegocio("La contraseña debe tener al menos 8 caracteres", 400)
-        if self.usuarios.por_correo(correo):
-            raise ErrorNegocio("El correo ya está registrado", 400)
+        self._validar_datos(nombre, correo, password)
+
+        existente = db.session.scalar(select(Usuario).where(Usuario.correo == correo))
+        if existente:
+            raise ErrorNegocio("El correo ya está registrado")
 
         usuario = Usuario(
             nombre=nombre,
             correo=correo,
             password_hash=generate_password_hash(password),
-            rol=RolUsuario.inversionista,
         )
-        self.usuarios.agregar(usuario)
-        self.portafolios.agregar_para_usuario(usuario.id)
+        usuario.portafolio = Portafolio()
+        db.session.add(usuario)
         db.session.commit()
         return self._respuesta_con_tokens(usuario)
 
-    def login(self, correo: str, password: str) -> dict:
+    def login(self, correo, password):
         correo = (correo or "").strip().lower()
-        usuario = self.usuarios.por_correo(correo)
-        if usuario is None or not check_password_hash(usuario.password_hash, password or ""):
-            raise ErrorNegocio("Credenciales inválidas", 401)
+        usuario = db.session.scalar(select(Usuario).where(Usuario.correo == correo))
+        if not usuario or not password or not check_password_hash(usuario.password_hash, password):
+            raise ErrorNegocio("Correo o contraseña incorrectos", 401)
         return self._respuesta_con_tokens(usuario)
 
-    def renovar(self, usuario: Usuario) -> dict:
+    def _validar_datos(self, nombre, correo, password):
+        if len(nombre) < 2 or len(nombre) > 120:
+            raise ErrorNegocio("El nombre debe tener entre 2 y 120 caracteres")
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo):
+            raise ErrorNegocio("El correo no es válido")
+        if not password or len(password) < 8:
+            raise ErrorNegocio("La contraseña debe tener al menos 8 caracteres")
+
+    def _respuesta_con_tokens(self, usuario):
+        identidad = str(usuario.id)
+        claims = {"rol": usuario.rol.value}
         return {
-            "access_token": self._access(usuario),
-            "usuario": usuario_publico(usuario),
+            "access_token": create_access_token(identity=identidad, additional_claims=claims),
+            "refresh_token": create_refresh_token(identity=identidad, additional_claims=claims),
+            "usuario": self._usuario_dict(usuario),
         }
 
-    def _access(self, usuario: Usuario) -> str:
-        return create_access_token(
-            identity=str(usuario.id),
-            additional_claims={"rol": usuario.rol.value},
-        )
-
-    def _refresh(self, usuario: Usuario) -> str:
-        return create_refresh_token(
-            identity=str(usuario.id),
-            additional_claims={"rol": usuario.rol.value},
-        )
-
-    def _respuesta_con_tokens(self, usuario: Usuario) -> dict:
+    @staticmethod
+    def _usuario_dict(usuario):
         return {
-            "access_token": self._access(usuario),
-            "refresh_token": self._refresh(usuario),
-            "usuario": usuario_publico(usuario),
+            "id": usuario.id,
+            "nombre": usuario.nombre,
+            "correo": usuario.correo,
+            "rol": usuario.rol.value,
         }

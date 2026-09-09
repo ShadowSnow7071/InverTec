@@ -1,9 +1,9 @@
 from flask import jsonify
-from flask_jwt_extended import get_jwt, jwt_required
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 from functools import wraps
 
-from backend.conexion import jwt
-from backend.repositorios.usuario import UsuarioRepo
+from backend.conexion import db, jwt
+from backend.modelos import Usuario
 
 
 def json_error(mensaje: str, codigo: int):
@@ -11,8 +11,8 @@ def json_error(mensaje: str, codigo: int):
 
 
 @jwt.user_lookup_loader
-def cargar_usuario(_tipo, datos):
-    return UsuarioRepo().por_id(int(datos["sub"]))
+def cargar_usuario(_jwt_header, jwt_data):
+    return db.session.get(Usuario, int(jwt_data["sub"]))
 
 
 @jwt.unauthorized_loader
@@ -30,9 +30,8 @@ def token_expirado(_encabezado, _datos):
     return json_error("Token expirado", 401)
 
 
-@jwt.needs_fresh_token_loader
-def token_no_fresco(_encabezado, _datos):
-    return json_error("Token requerido", 401)
+def usuario_actual():
+    return db.session.get(Usuario, int(get_jwt_identity()))
 
 
 def rol_admin(fn):
