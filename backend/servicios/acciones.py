@@ -103,18 +103,19 @@ class AccionServicio:
             "precio_actual": cls._precio_actual(clave),
         }
 
-    @staticmethod
-    def calcular_riesgo(ticker: str, cantidad, precio_unitario, saldo_virtual):
+    @classmethod
+    def calcular_riesgo(cls, ticker: str, cantidad, saldo_virtual):
         clave = (ticker or "").strip().upper()
         if clave not in CATALOGO:
             raise ErrorNegocio("La acción no existe", 404)
 
         try:
             cantidad_decimal = Decimal(str(cantidad))
-            precio_decimal = Decimal(str(precio_unitario))
             saldo_decimal = Decimal(str(saldo_virtual))
         except (InvalidOperation, TypeError, ValueError):
-            raise ErrorNegocio("Los valores de cantidad y precio no son válidos")
+            raise ErrorNegocio("La cantidad o el saldo no son válidos")
+
+        precio_decimal = Decimal(cls._precio_actual(clave))
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
             raise ErrorNegocio("La cantidad y el precio deben ser mayores a cero")

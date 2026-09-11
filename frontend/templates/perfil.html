@@ -203,7 +203,6 @@
       const cuerpo = await enviarOperacion("/api/portafolio/movimientos/riesgo", {
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
-        precio_unitario: precioOperacion.value,
       });
       mostrarResultado(`Riesgo calculado: ${cuerpo.riesgo_calculado}/100. Revisa los datos antes de confirmar.`, "info");
       simulacionValida = true;
@@ -221,7 +220,6 @@
       await enviarOperacion(`/api/portafolio/${tipoOperacion.value}`, {
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
-        precio_unitario: precioOperacion.value,
       });
       window.location.reload();
     } catch (error) {

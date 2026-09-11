@@ -41,7 +41,6 @@ def riesgo_movimiento():
         resultado = servicio.calcular_riesgo(
             datos.get("ticker"),
             datos.get("cantidad"),
-            datos.get("precio_unitario"),
             usuario.portafolio.saldo_virtual,
         )
     except ErrorNegocio as exc:
