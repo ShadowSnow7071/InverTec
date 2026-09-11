@@ -1,4 +1,10 @@
 from decimal import Decimal, InvalidOperation
+import json
+import os
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from backend.servicios.auth import ErrorNegocio
 
@@ -28,26 +34,68 @@ PRECIOS_BASE = {
 
 
 class AccionServicio:
+    _precios_cache = {}
+    _cache_segundos = 60
+
+    @staticmethod
+    def _precio_externo(ticker: str):
+        api_key = os.environ.get("MARKET_DATA_API_KEY")
+        if not api_key:
+            return None
+
+        parametros = urlencode(
+            {"function": "GLOBAL_QUOTE", "symbol": ticker, "apikey": api_key}
+        )
+        solicitud = Request(
+            f"https://www.alphavantage.co/query?{parametros}",
+            headers={"Accept": "application/json", "User-Agent": "InverTec/1.0"},
+        )
+        try:
+            with urlopen(solicitud, timeout=5) as respuesta:
+                datos = json.load(respuesta)
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+            return None
+
+        cotizacion = datos.get("Global Quote", {})
+        precio = cotizacion.get("05. price")
+        try:
+            return Decimal(str(precio)).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+    @classmethod
+    def _precio_actual(cls, ticker: str):
+        precio_guardado = cls._precios_cache.get(ticker)
+        if precio_guardado and time.monotonic() - precio_guardado[0] < cls._cache_segundos:
+            return precio_guardado[1]
+
+        precio_externo = cls._precio_externo(ticker)
+        if precio_externo is not None:
+            precio = str(precio_externo)
+            cls._precios_cache[ticker] = (time.monotonic(), precio)
+            return precio
+        return PRECIOS_BASE[ticker]
+
     @staticmethod
     def listar_catalogo():
         return [
             {
                 "ticker": ticker,
                 "nombre_empresa": datos["nombre_empresa"],
-                "precio_actual": PRECIOS_BASE[ticker],
+                "precio_actual": AccionServicio._precio_actual(ticker),
             }
             for ticker, datos in sorted(CATALOGO.items())
         ]
 
-    @staticmethod
-    def obtener_por_ticker(ticker: str):
+    @classmethod
+    def obtener_por_ticker(cls, ticker: str):
         clave = (ticker or "").strip().upper()
         if clave not in CATALOGO:
             return None
         return {
             "ticker": clave,
             "nombre_empresa": CATALOGO[clave]["nombre_empresa"],
-            "precio_actual": PRECIOS_BASE[clave],
+            "precio_actual": cls._precio_actual(clave),
         }
 
     @staticmethod

@@ -147,6 +147,19 @@ def test_api_acciones_devuelve_catalogo_publico(client):
     assert all("precio_actual" in item for item in cuerpo)
 
 
+def test_api_accion_devuelve_precio_demo_sin_api_key(client, monkeypatch):
+    monkeypatch.delenv("MARKET_DATA_API_KEY", raising=False)
+
+    respuesta = client.get("/api/acciones/NVDA/precio")
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "ticker": "NVDA",
+        "nombre_empresa": "NVIDIA",
+        "precio_actual": "127.85",
+    }
+
+
 def test_riesgo_movimiento_retorna_escala_valida(client, app):
     token = registrar_y_obtener_token(client, "riesgo@example.com")
 

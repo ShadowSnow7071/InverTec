@@ -15,6 +15,7 @@ def acciones():
 
 
 @bp.get("/acciones/<ticker>")
+@bp.get("/acciones/<ticker>/precio")
 def detalle_accion(ticker):
     accion = servicio.obtener_por_ticker(ticker)
     if accion is None:
