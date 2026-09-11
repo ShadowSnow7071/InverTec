@@ -81,7 +81,7 @@ def perfil():
     usuario = current_user
     datos_portafolio = portafolio.obtener(int(get_jwt_identity()))
     movimientos = portafolio.listar_movimientos(int(get_jwt_identity()))
-    catalogo = acciones.listar_catalogo()
+    catalogo = acciones.listar_catalogo(precios_reales=False)
     return render_template(
         "perfil.html",
         usuario_actual=usuario,

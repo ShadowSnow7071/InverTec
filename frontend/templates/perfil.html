@@ -45,21 +45,22 @@
 {% endif %}
 
 <h2 class="h5">Mercado disponible</h2>
+<p class="text-muted">Los precios de referencia se actualizan al seleccionar una acción en el simulador.</p>
 <div class="table-responsive mb-4">
   <table class="table align-middle">
     <thead>
       <tr>
         <th>Ticker</th>
         <th>Empresa</th>
-        <th class="text-end">Precio actual</th>
+        <th class="text-end">Precio de referencia</th>
       </tr>
     </thead>
     <tbody>
       {% for accion in catalogo %}
-      <tr>
+      <tr data-ticker="{{ accion.ticker }}">
         <td class="fw-semibold">{{ accion.ticker }}</td>
         <td>{{ accion.nombre_empresa }}</td>
-        <td class="text-end">${{ accion.precio_actual }}</td>
+        <td class="text-end" data-precio-referencia>${{ accion.precio_actual }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -82,7 +83,7 @@
         <label class="form-label" for="accion-operacion">Acción</label>
         <select class="form-select" id="accion-operacion">
           {% for accion in catalogo %}
-          <option value="{{ accion.ticker }}" data-precio="{{ accion.precio_actual }}">
+          <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}">
             {{ accion.ticker }} - {{ accion.nombre_empresa }}
           </option>
           {% endfor %}
@@ -155,12 +156,30 @@
     resultadoOperacion.className = `alert alert-${tipo} mt-3`;
   }
 
-  function actualizarPrecio() {
+  function actualizarPrecioTabla(ticker, precio) {
+    const fila = document.querySelector(`[data-ticker="${ticker}"] [data-precio-referencia]`);
+    if (fila) fila.textContent = `$${precio}`;
+  }
+
+  async function actualizarPrecio() {
     const opcion = accionOperacion.selectedOptions[0];
-    precioOperacion.value = opcion.dataset.precio;
+    precioOperacion.value = "";
     simulacionValida = false;
     confirmarOperacion.disabled = true;
     resultadoOperacion.className = "alert mt-3 d-none";
+
+    try {
+      const respuesta = await fetch(`/api/acciones/${accionOperacion.value}/precio`);
+      const cuerpo = await respuesta.json();
+      if (!respuesta.ok) {
+        throw new Error(cuerpo.error || "No fue posible consultar el precio");
+      }
+      precioOperacion.value = cuerpo.precio_actual;
+      actualizarPrecioTabla(accionOperacion.value, cuerpo.precio_actual);
+    } catch (error) {
+      precioOperacion.value = opcion.dataset.precioDemo;
+      mostrarResultado(`${error.message}. Se usará el precio demo.`, "warning");
+    }
   }
 
   async function enviarOperacion(url, datos) {

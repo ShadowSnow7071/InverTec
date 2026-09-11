@@ -65,6 +65,9 @@ class AccionServicio:
 
     @classmethod
     def _precio_actual(cls, ticker: str):
+        if not os.environ.get("MARKET_DATA_API_KEY"):
+            return PRECIOS_BASE[ticker]
+
         precio_guardado = cls._precios_cache.get(ticker)
         if precio_guardado and time.monotonic() - precio_guardado[0] < cls._cache_segundos:
             return precio_guardado[1]
@@ -76,13 +79,15 @@ class AccionServicio:
             return precio
         return PRECIOS_BASE[ticker]
 
-    @staticmethod
-    def listar_catalogo():
+    @classmethod
+    def listar_catalogo(cls, precios_reales=True):
         return [
             {
                 "ticker": ticker,
                 "nombre_empresa": datos["nombre_empresa"],
-                "precio_actual": AccionServicio._precio_actual(ticker),
+                "precio_actual": (
+                    cls._precio_actual(ticker) if precios_reales else PRECIOS_BASE[ticker]
+                ),
             }
             for ticker, datos in sorted(CATALOGO.items())
         ]

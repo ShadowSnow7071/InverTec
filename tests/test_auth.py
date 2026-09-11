@@ -108,6 +108,8 @@ def test_flujo_html_registro_perfil_y_logout(client):
     assert b"10000.00" in registro.data
     assert b"AAPL" in registro.data
     assert b"Apple Inc." in registro.data
+    assert b"Precio de referencia" in registro.data
+    assert b"Los precios de referencia se actualizan" in registro.data
     assert b"Simular operaci\xc3\xb3n" in registro.data
     assert b"Consultar riesgo" in registro.data
 
