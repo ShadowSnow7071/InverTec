@@ -176,6 +176,8 @@ def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     cuerpo = respuesta.get_json()
     assert cuerpo["ticker"] == "AAPL"
     assert 0 <= float(cuerpo["riesgo_calculado"]) <= 100
+    assert float(cuerpo["exposicion_porcentaje"]) > 0
+    assert cuerpo["volatilidad_porcentaje"] == "20.00"
 
 
 def test_portafolio_requiere_autenticacion(client):

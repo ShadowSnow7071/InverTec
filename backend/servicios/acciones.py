@@ -135,5 +135,9 @@ class AccionServicio:
             "precio_unitario": str(precio_decimal),
             "valor_total": str(valor_total),
             "saldo_virtual": str(saldo_decimal),
+            "exposicion_porcentaje": str(exposicion.quantize(Decimal("0.01"))),
+            "volatilidad_porcentaje": str(
+                (volatilidad * Decimal("100")).quantize(Decimal("0.01"))
+            ),
             "riesgo_calculado": str(riesgo.quantize(Decimal("0.01"))),
         }

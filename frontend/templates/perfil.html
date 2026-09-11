@@ -146,6 +146,12 @@
   const resultadoOperacion = document.getElementById("resultado-operacion");
   let simulacionValida = false;
 
+  function invalidarSimulacion(mensaje = "Consulta el riesgo para habilitar la confirmación.") {
+    simulacionValida = false;
+    confirmarOperacion.disabled = true;
+    if (mensaje) mostrarResultado(mensaje, "warning");
+  }
+
   function tokenCsrf() {
     const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
     return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
@@ -164,8 +170,7 @@
   async function actualizarPrecio() {
     const opcion = accionOperacion.selectedOptions[0];
     precioOperacion.value = "";
-    simulacionValida = false;
-    confirmarOperacion.disabled = true;
+    invalidarSimulacion(null);
     resultadoOperacion.className = "alert mt-3 d-none";
 
     try {
@@ -196,15 +201,24 @@
   }
 
   accionOperacion.addEventListener("change", actualizarPrecio);
+  cantidadOperacion.addEventListener("input", () => invalidarSimulacion());
+  tipoOperacion.addEventListener("change", () => invalidarSimulacion());
   actualizarPrecio();
 
   consultarRiesgo.addEventListener("click", async () => {
+    invalidarSimulacion(null);
     try {
       const cuerpo = await enviarOperacion("/api/portafolio/movimientos/riesgo", {
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
       });
-      mostrarResultado(`Riesgo calculado: ${cuerpo.riesgo_calculado}/100. Revisa los datos antes de confirmar.`, "info");
+      mostrarResultado(
+        `Riesgo calculado: ${cuerpo.riesgo_calculado}/100. ` +
+        `Se calcula con 60% de la exposición (${cuerpo.exposicion_porcentaje}% del saldo) ` +
+        `más la volatilidad de ${cuerpo.volatilidad_porcentaje}%. ` +
+        `Revisa estos datos antes de confirmar.`,
+        "info",
+      );
       simulacionValida = true;
       confirmarOperacion.disabled = false;
     } catch (error) {
