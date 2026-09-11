@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload
 
 from backend.conexion import db
 from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento
+from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import ErrorNegocio
 
 
@@ -15,14 +16,14 @@ class PortafolioServicio:
             return None
         return self._estado_portafolio(portafolio)
 
-    def comprar(self, usuario_id: int, ticker: str, cantidad, precio_unitario):
+    def comprar(self, usuario_id: int, ticker: str, cantidad):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
         accion = self._obtener_o_crear_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
-        precio_decimal = self._parse_decimal(precio_unitario, "precio_unitario")
+        precio_decimal = self._precio_de_mercado(accion.ticker)
         costo_total = cantidad_decimal * precio_decimal
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
@@ -42,14 +43,14 @@ class PortafolioServicio:
         db.session.commit()
         return self._estado_portafolio(portafolio)
 
-    def vender(self, usuario_id: int, ticker: str, cantidad, precio_unitario):
+    def vender(self, usuario_id: int, ticker: str, cantidad):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
         accion = self._obtener_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
-        precio_decimal = self._parse_decimal(precio_unitario, "precio_unitario")
+        precio_decimal = self._precio_de_mercado(accion.ticker)
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
             raise ErrorNegocio("La cantidad y el precio deben ser mayores a cero")
@@ -100,15 +101,27 @@ class PortafolioServicio:
         ticker = (ticker or "").strip().upper()
         if not ticker:
             raise ErrorNegocio("El ticker es obligatorio")
+        datos_accion = AccionServicio.obtener_por_ticker(ticker)
+        if datos_accion is None:
+            raise ErrorNegocio("La acción no existe", 404)
 
         accion = db.session.scalar(select(Accion).where(Accion.ticker == ticker))
         if accion is not None:
             return accion
 
-        accion = Accion(ticker=ticker, nombre_empresa=ticker)
+        accion = Accion(ticker=ticker, nombre_empresa=datos_accion["nombre_empresa"])
         db.session.add(accion)
         db.session.flush()
         return accion
+
+    @staticmethod
+    def _precio_de_mercado(ticker: str):
+        datos_accion = AccionServicio.obtener_por_ticker(ticker)
+        if datos_accion is None:
+            raise ErrorNegocio("La acción no existe", 404)
+        return PortafolioServicio._parse_decimal(
+            datos_accion["precio_actual"], "precio de mercado"
+        )
 
     def _estado_portafolio(self, portafolio):
         return {

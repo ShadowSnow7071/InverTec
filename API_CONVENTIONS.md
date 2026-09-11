@@ -23,6 +23,9 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 - `GET /api/acciones` — catálogo de acciones disponibles para simular
 - `GET /api/acciones/{ticker}/precio` — precio actual de una acción vía la API externa
 
+El proveedor externo se configura con `MARKET_DATA_API_KEY`. Sin esa variable, la
+aplicación usa precios demo para permitir pruebas locales sin depender de Internet.
+
 ## Reglas generales
 - Rutas bajo `/api/*` devuelven JSON. Rutas fuera de `/api/*` (login, registro, simulador) devuelven HTML vía Jinja2.
 - Todas las rutas protegidas requieren `Authorization: Bearer <token>`.

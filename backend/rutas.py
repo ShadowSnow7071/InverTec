@@ -8,11 +8,13 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
 )
 
+from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import AuthServicio, ErrorNegocio
 from backend.servicios.portafolio import PortafolioServicio
 
 bp = Blueprint("main", __name__)
 auth = AuthServicio()
+acciones = AccionServicio()
 portafolio = PortafolioServicio()
 
 
@@ -79,11 +81,13 @@ def perfil():
     usuario = current_user
     datos_portafolio = portafolio.obtener(int(get_jwt_identity()))
     movimientos = portafolio.listar_movimientos(int(get_jwt_identity()))
+    catalogo = acciones.listar_catalogo(precios_reales=False)
     return render_template(
         "perfil.html",
         usuario_actual=usuario,
         datos_portafolio=datos_portafolio,
         movimientos=movimientos,
+        catalogo=catalogo,
     )
 
 

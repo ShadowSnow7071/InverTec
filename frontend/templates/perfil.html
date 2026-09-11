@@ -44,6 +44,68 @@
 <p class="text-muted mb-4">Todavía no tienes posiciones.</p>
 {% endif %}
 
+<h2 class="h5">Mercado disponible</h2>
+<p class="text-muted">Los precios de referencia se actualizan al seleccionar una acción en el simulador.</p>
+<div class="table-responsive mb-4">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Empresa</th>
+        <th class="text-end">Precio de referencia</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for accion in catalogo %}
+      <tr data-ticker="{{ accion.ticker }}">
+        <td class="fw-semibold">{{ accion.ticker }}</td>
+        <td>{{ accion.nombre_empresa }}</td>
+        <td class="text-end" data-precio-referencia>${{ accion.precio_actual }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="card mb-4" aria-labelledby="simulador-titulo">
+  <div class="card-body">
+    <h2 id="simulador-titulo" class="h5">Simular operación</h2>
+    <p class="text-muted">Consulta el riesgo antes de confirmar una compra o venta.</p>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="tipo-operacion">Operación</label>
+        <select class="form-select" id="tipo-operacion">
+          <option value="comprar">Comprar</option>
+          <option value="vender">Vender</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="accion-operacion">Acción</label>
+        <select class="form-select" id="accion-operacion">
+          {% for accion in catalogo %}
+          <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}">
+            {{ accion.ticker }} - {{ accion.nombre_empresa }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="cantidad-operacion">Cantidad</label>
+        <input class="form-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="precio-operacion">Precio unitario</label>
+        <input class="form-control" id="precio-operacion" type="number" readonly />
+      </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center mt-3">
+      <button class="btn btn-outline-primary" id="consultar-riesgo" type="button">Consultar riesgo</button>
+      <button class="btn btn-primary" id="confirmar-operacion" type="button" disabled>Confirmar operación</button>
+    </div>
+    <div class="alert mt-3 d-none" id="resultado-operacion" role="status"></div>
+  </div>
+</section>
+
 <h2 class="h5">Historial de movimientos</h2>
 {% if movimientos %}
 <div class="table-responsive">
@@ -71,4 +133,98 @@
 {% else %}
 <p class="text-muted">Aún no tienes movimientos registrados.</p>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const tipoOperacion = document.getElementById("tipo-operacion");
+  const accionOperacion = document.getElementById("accion-operacion");
+  const cantidadOperacion = document.getElementById("cantidad-operacion");
+  const precioOperacion = document.getElementById("precio-operacion");
+  const consultarRiesgo = document.getElementById("consultar-riesgo");
+  const confirmarOperacion = document.getElementById("confirmar-operacion");
+  const resultadoOperacion = document.getElementById("resultado-operacion");
+  let simulacionValida = false;
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function mostrarResultado(mensaje, tipo) {
+    resultadoOperacion.textContent = mensaje;
+    resultadoOperacion.className = `alert alert-${tipo} mt-3`;
+  }
+
+  function actualizarPrecioTabla(ticker, precio) {
+    const fila = document.querySelector(`[data-ticker="${ticker}"] [data-precio-referencia]`);
+    if (fila) fila.textContent = `$${precio}`;
+  }
+
+  async function actualizarPrecio() {
+    const opcion = accionOperacion.selectedOptions[0];
+    precioOperacion.value = "";
+    simulacionValida = false;
+    confirmarOperacion.disabled = true;
+    resultadoOperacion.className = "alert mt-3 d-none";
+
+    try {
+      const respuesta = await fetch(`/api/acciones/${accionOperacion.value}/precio`);
+      const cuerpo = await respuesta.json();
+      if (!respuesta.ok) {
+        throw new Error(cuerpo.error || "No fue posible consultar el precio");
+      }
+      precioOperacion.value = cuerpo.precio_actual;
+      actualizarPrecioTabla(accionOperacion.value, cuerpo.precio_actual);
+    } catch (error) {
+      precioOperacion.value = opcion.dataset.precioDemo;
+      mostrarResultado(`${error.message}. Se usará el precio demo.`, "warning");
+    }
+  }
+
+  async function enviarOperacion(url, datos) {
+    const respuesta = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+      body: JSON.stringify(datos),
+    });
+    const cuerpo = await respuesta.json();
+    if (!respuesta.ok) {
+      throw new Error(cuerpo.error || "No fue posible completar la operación");
+    }
+    return cuerpo;
+  }
+
+  accionOperacion.addEventListener("change", actualizarPrecio);
+  actualizarPrecio();
+
+  consultarRiesgo.addEventListener("click", async () => {
+    try {
+      const cuerpo = await enviarOperacion("/api/portafolio/movimientos/riesgo", {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+      });
+      mostrarResultado(`Riesgo calculado: ${cuerpo.riesgo_calculado}/100. Revisa los datos antes de confirmar.`, "info");
+      simulacionValida = true;
+      confirmarOperacion.disabled = false;
+    } catch (error) {
+      simulacionValida = false;
+      confirmarOperacion.disabled = true;
+      mostrarResultado(error.message, "danger");
+    }
+  });
+
+  confirmarOperacion.addEventListener("click", async () => {
+    if (!simulacionValida) return;
+    try {
+      await enviarOperacion(`/api/portafolio/${tipoOperacion.value}`, {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+      });
+      window.location.reload();
+    } catch (error) {
+      mostrarResultado(error.message, "danger");
+    }
+  });
+</script>
 {% endblock %}
