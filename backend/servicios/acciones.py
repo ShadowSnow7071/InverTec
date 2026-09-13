@@ -128,6 +128,13 @@ class AccionServicio:
         riesgo = (exposicion * Decimal("0.60")) + (volatilidad * Decimal("100"))
         riesgo = min(max(riesgo, Decimal("0")), Decimal("100"))
 
+        if riesgo < Decimal("35"):
+            riesgo_nivel = "bajo"
+        elif riesgo < Decimal("70"):
+            riesgo_nivel = "medio"
+        else:
+            riesgo_nivel = "alto"
+
         return {
             "ticker": clave,
             "nombre_empresa": CATALOGO[clave]["nombre_empresa"],
@@ -140,4 +147,5 @@ class AccionServicio:
                 (volatilidad * Decimal("100")).quantize(Decimal("0.01"))
             ),
             "riesgo_calculado": str(riesgo.quantize(Decimal("0.01"))),
+            "riesgo_nivel": riesgo_nivel,
         }

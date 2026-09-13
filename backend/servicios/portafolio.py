@@ -16,7 +16,7 @@ class PortafolioServicio:
             return None
         return self._estado_portafolio(portafolio)
 
-    def comprar(self, usuario_id: int, ticker: str, cantidad):
+    def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
@@ -24,6 +24,7 @@ class PortafolioServicio:
         accion = self._obtener_o_crear_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
         precio_decimal = self._precio_de_mercado(accion.ticker)
+        riesgo_decimal = self._parse_riesgo(riesgo_calculado)
         costo_total = cantidad_decimal * precio_decimal
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
@@ -38,12 +39,13 @@ class PortafolioServicio:
             tipo=TipoMovimiento.compra,
             cantidad=cantidad_decimal,
             precio_unitario=precio_decimal,
+            riesgo_calculado=riesgo_decimal,
         )
         db.session.add(movimiento)
         db.session.commit()
         return self._estado_portafolio(portafolio)
 
-    def vender(self, usuario_id: int, ticker: str, cantidad):
+    def vender(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
@@ -51,6 +53,7 @@ class PortafolioServicio:
         accion = self._obtener_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
         precio_decimal = self._precio_de_mercado(accion.ticker)
+        riesgo_decimal = self._parse_riesgo(riesgo_calculado)
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
             raise ErrorNegocio("La cantidad y el precio deben ser mayores a cero")
@@ -67,6 +70,7 @@ class PortafolioServicio:
             tipo=TipoMovimiento.venta,
             cantidad=cantidad_decimal,
             precio_unitario=precio_decimal,
+            riesgo_calculado=riesgo_decimal,
         )
         db.session.add(movimiento)
         db.session.commit()
@@ -140,6 +144,15 @@ class PortafolioServicio:
         if not decimal_valor.is_finite():
             raise ErrorNegocio(f"El campo {nombre} no es válido")
         return decimal_valor
+
+    @staticmethod
+    def _parse_riesgo(valor):
+        if valor is None:
+            return None
+        riesgo = PortafolioServicio._parse_decimal(valor, "riesgo_calculado")
+        if riesgo < Decimal("0") or riesgo > Decimal("100"):
+            raise ErrorNegocio("El riesgo calculado debe estar entre 0 y 100")
+        return riesgo
 
     @staticmethod
     def _cantidad_disponible(portafolio_id: int, accion_id: int):

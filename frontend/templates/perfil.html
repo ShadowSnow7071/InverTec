@@ -115,6 +115,7 @@
         <th>Tipo</th>
         <th>Ticker</th>
         <th class="text-end">Cantidad</th>
+        <th class="text-end">Riesgo</th>
         <th class="text-end">Precio</th>
       </tr>
     </thead>
@@ -124,6 +125,7 @@
         <td>{{ movimiento.tipo|capitalize }}</td>
         <td>{{ movimiento.ticker }}</td>
         <td class="text-end">{{ movimiento.cantidad }}</td>
+        <td class="text-end">{{ movimiento.riesgo_calculado if movimiento.riesgo_calculado is not none else '—' }}</td>
         <td class="text-end">${{ movimiento.precio_unitario }}</td>
       </tr>
       {% endfor %}
@@ -145,9 +147,11 @@
   const confirmarOperacion = document.getElementById("confirmar-operacion");
   const resultadoOperacion = document.getElementById("resultado-operacion");
   let simulacionValida = false;
+  let riesgoActual = null;
 
   function invalidarSimulacion(mensaje = "Consulta el riesgo para habilitar la confirmación.") {
     simulacionValida = false;
+    riesgoActual = null;
     confirmarOperacion.disabled = true;
     if (mensaje) mostrarResultado(mensaje, "warning");
   }
@@ -212,13 +216,15 @@
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
       });
+      const nivelTexto = cuerpo.riesgo_nivel ? ` Nivel: ${cuerpo.riesgo_nivel}.` : "";
       mostrarResultado(
-        `Riesgo calculado: ${cuerpo.riesgo_calculado}/100. ` +
-        `Se calcula con 60% de la exposición (${cuerpo.exposicion_porcentaje}% del saldo) ` +
-        `más la volatilidad de ${cuerpo.volatilidad_porcentaje}%. ` +
-        `Revisa estos datos antes de confirmar.`,
+        `Riesgo calculado: ${cuerpo.riesgo_calculado}/100.` +
+        ` Se calcula con 60% de la exposición (${cuerpo.exposicion_porcentaje}% del saldo) ` +
+        `más la volatilidad de ${cuerpo.volatilidad_porcentaje}%.` +
+        `${nivelTexto} Revisa estos datos antes de confirmar.`,
         "info",
       );
+      riesgoActual = cuerpo.riesgo_calculado;
       simulacionValida = true;
       confirmarOperacion.disabled = false;
     } catch (error) {
@@ -229,11 +235,15 @@
   });
 
   confirmarOperacion.addEventListener("click", async () => {
-    if (!simulacionValida) return;
+    if (!simulacionValida || riesgoActual === null) {
+      invalidarSimulacion("Primero consulta el riesgo para confirmar la operación.");
+      return;
+    }
     try {
       await enviarOperacion(`/api/portafolio/${tipoOperacion.value}`, {
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
+        riesgo_calculado: riesgoActual,
       });
       window.location.reload();
     } catch (error) {
