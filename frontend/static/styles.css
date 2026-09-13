@@ -1,0 +1,118 @@
+:root {
+  --ink: #17252d;
+  --muted: #65747c;
+  --paper: #f5f7f4;
+  --surface: #ffffff;
+  --line: #dce5e1;
+  --teal: #087f7b;
+  --teal-dark: #075b5b;
+  --coral: #e87555;
+  --shadow: 0 14px 35px rgba(23, 37, 45, 0.08);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.navbar {
+  background: var(--teal-dark) !important;
+  box-shadow: 0 5px 18px rgba(7, 91, 91, 0.18);
+}
+
+.navbar-brand {
+  letter-spacing: 0.04em;
+}
+
+.navbar .btn-light,
+.btn-primary {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: #fff;
+}
+
+.navbar .btn-light:hover,
+.btn-primary:hover {
+  background: #d85f43;
+  border-color: #d85f43;
+  color: #fff;
+}
+
+.btn-outline-primary {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.btn-outline-primary:hover {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.display-6 {
+  color: var(--teal-dark);
+  font-weight: 700;
+}
+
+.table {
+  --bs-table-bg: var(--surface);
+  border-color: var(--line);
+}
+
+.table thead th {
+  background: #e8f0ed;
+  color: var(--teal-dark);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.table tbody tr:hover {
+  background: #f0f7f4;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 0.2rem rgba(8, 127, 123, 0.15);
+}
+
+.text-muted {
+  color: var(--muted) !important;
+}
+
+.portfolio-heading {
+  border-left: 5px solid var(--coral);
+  padding-left: 1rem;
+}
+
+.hero-panel {
+  background: linear-gradient(135deg, #e4f2ed 0%, #fff8ee 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.auth-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 5px solid var(--teal);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 576px) {
+  main.container {
+    padding-top: 1.5rem !important;
+  }
+
+  .navbar .btn {
+    font-size: 0.78rem;
+  }
+}
