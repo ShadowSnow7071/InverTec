@@ -57,6 +57,7 @@ def comprar():
             usuario.id,
             datos.get("ticker"),
             datos.get("cantidad"),
+            datos.get("riesgo_calculado"),
         )
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
@@ -79,6 +80,7 @@ def vender():
             usuario.id,
             datos.get("ticker"),
             datos.get("cantidad"),
+            datos.get("riesgo_calculado"),
         )
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)

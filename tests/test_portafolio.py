@@ -140,6 +140,25 @@ def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
     assert cuerpo["movimientos"][0]["tipo"] == "venta"
 
 
+def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    token = registrar_y_obtener_token(client, "riesgo_compra@example.com")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "ticker": "AAPL",
+            "cantidad": "2",
+            "riesgo_calculado": "12.50",
+        },
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["movimientos"][0]["riesgo_calculado"] == "12.50"
+
+
 def test_api_acciones_devuelve_catalogo_publico(client):
     respuesta = client.get("/api/acciones")
 
@@ -176,6 +195,9 @@ def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     cuerpo = respuesta.get_json()
     assert cuerpo["ticker"] == "AAPL"
     assert 0 <= float(cuerpo["riesgo_calculado"]) <= 100
+    assert float(cuerpo["exposicion_porcentaje"]) > 0
+    assert cuerpo["volatilidad_porcentaje"] == "20.00"
+    assert cuerpo["riesgo_nivel"] in {"bajo", "medio", "alto"}
 
 
 def test_portafolio_requiere_autenticacion(client):
