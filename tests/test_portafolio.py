@@ -88,6 +88,7 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
     assert respuesta.status_code == 200
     assert respuesta.get_json()[0]["ticker"] == "NVDA"
     assert respuesta.get_json()[0]["riesgo_calculado"] == "25.00"
+    assert respuesta.get_json()[0]["riesgo_nivel"] == "bajo"
 
 
 def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
@@ -97,7 +98,7 @@ def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
     respuesta = client.post(
         "/api/portafolio/comprar",
         headers={"Authorization": f"Bearer {token}"},
-        json={"ticker": "AAPL", "cantidad": "2", "precio_unitario": "0.01"},
+        json={"ticker": "AAPL", "cantidad": "2", "riesgo_calculado": "22.57"},
     )
 
     assert respuesta.status_code == 200
@@ -130,7 +131,7 @@ def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
     respuesta = client.post(
         "/api/portafolio/vender",
         headers={"Authorization": f"Bearer {token}"},
-        json={"ticker": "MSFT", "cantidad": "1.5000", "precio_unitario": "0.01"},
+        json={"ticker": "MSFT", "cantidad": "1.5000", "riesgo_calculado": "21.84"},
     )
 
     assert respuesta.status_code == 200
@@ -150,13 +151,27 @@ def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeyp
         json={
             "ticker": "AAPL",
             "cantidad": "2",
-            "riesgo_calculado": "12.50",
+            "riesgo_calculado": "22.57",
         },
     )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.get_json()
-    assert cuerpo["movimientos"][0]["riesgo_calculado"] == "12.50"
+    assert cuerpo["movimientos"][0]["riesgo_calculado"] == "22.57"
+
+
+def test_compra_requiere_riesgo_calculado(client, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    token = registrar_y_obtener_token(client, "riesgo_requerido@example.com")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "2"},
+    )
+
+    assert respuesta.status_code == 400
+    assert "consultar el riesgo" in respuesta.get_json()["error"]
 
 
 def test_api_acciones_devuelve_catalogo_publico(client):
