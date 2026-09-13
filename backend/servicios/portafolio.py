@@ -24,7 +24,9 @@ class PortafolioServicio:
         accion = self._obtener_o_crear_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
         precio_decimal = self._precio_de_mercado(accion.ticker)
-        riesgo_decimal = self._parse_riesgo(riesgo_calculado)
+        riesgo_decimal = self._validar_riesgo(
+            accion.ticker, cantidad_decimal, portafolio.saldo_virtual, riesgo_calculado
+        )
         costo_total = cantidad_decimal * precio_decimal
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
@@ -53,7 +55,9 @@ class PortafolioServicio:
         accion = self._obtener_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
         precio_decimal = self._precio_de_mercado(accion.ticker)
-        riesgo_decimal = self._parse_riesgo(riesgo_calculado)
+        riesgo_decimal = self._validar_riesgo(
+            accion.ticker, cantidad_decimal, portafolio.saldo_virtual, riesgo_calculado
+        )
 
         if cantidad_decimal <= 0 or precio_decimal <= 0:
             raise ErrorNegocio("La cantidad y el precio deben ser mayores a cero")
@@ -148,11 +152,22 @@ class PortafolioServicio:
     @staticmethod
     def _parse_riesgo(valor):
         if valor is None:
-            return None
+            raise ErrorNegocio("Debes consultar el riesgo antes de confirmar la operación")
         riesgo = PortafolioServicio._parse_decimal(valor, "riesgo_calculado")
         if riesgo < Decimal("0") or riesgo > Decimal("100"):
             raise ErrorNegocio("El riesgo calculado debe estar entre 0 y 100")
         return riesgo
+
+    @staticmethod
+    def _validar_riesgo(ticker, cantidad, saldo_virtual, riesgo_calculado):
+        riesgo_recibido = PortafolioServicio._parse_riesgo(riesgo_calculado)
+        resultado = AccionServicio.calcular_riesgo(ticker, cantidad, saldo_virtual)
+        riesgo_esperado = Decimal(resultado["riesgo_calculado"])
+        if riesgo_recibido.quantize(Decimal("0.01")) != riesgo_esperado:
+            raise ErrorNegocio(
+                "El riesgo cambió. Consulta nuevamente antes de confirmar la operación"
+            )
+        return riesgo_recibido.quantize(Decimal("0.01"))
 
     @staticmethod
     def _cantidad_disponible(portafolio_id: int, accion_id: int):
