@@ -200,6 +200,7 @@ class PortafolioServicio:
 
     @staticmethod
     def _movimiento_dict(movimiento):
+        riesgo = movimiento.riesgo_calculado
         return {
             "id": movimiento.id,
             "ticker": movimiento.accion.ticker,
@@ -207,10 +208,17 @@ class PortafolioServicio:
             "tipo": movimiento.tipo.value,
             "cantidad": str(movimiento.cantidad),
             "precio_unitario": str(movimiento.precio_unitario),
-            "riesgo_calculado": (
-                str(movimiento.riesgo_calculado)
-                if movimiento.riesgo_calculado is not None
-                else None
-            ),
+            "riesgo_calculado": str(riesgo) if riesgo is not None else None,
+            "riesgo_nivel": PortafolioServicio._nivel_riesgo(riesgo),
             "fecha": movimiento.fecha.isoformat() if movimiento.fecha else None,
         }
+
+    @staticmethod
+    def _nivel_riesgo(riesgo):
+        if riesgo is None:
+            return None
+        if riesgo < Decimal("35"):
+            return "bajo"
+        if riesgo < Decimal("70"):
+            return "medio"
+        return "alto"

@@ -125,7 +125,16 @@
         <td>{{ movimiento.tipo|capitalize }}</td>
         <td>{{ movimiento.ticker }}</td>
         <td class="text-end">{{ movimiento.cantidad }}</td>
-        <td class="text-end">{{ movimiento.riesgo_calculado if movimiento.riesgo_calculado is not none else '—' }}</td>
+        <td class="text-end">
+          {% if movimiento.riesgo_calculado is not none %}
+          {{ movimiento.riesgo_calculado }}
+          <span class="badge text-bg-{{ 'success' if movimiento.riesgo_nivel == 'bajo' else 'warning' if movimiento.riesgo_nivel == 'medio' else 'danger' }}">
+            {{ movimiento.riesgo_nivel|capitalize }}
+          </span>
+          {% else %}
+          —
+          {% endif %}
+        </td>
         <td class="text-end">${{ movimiento.precio_unitario }}</td>
       </tr>
       {% endfor %}

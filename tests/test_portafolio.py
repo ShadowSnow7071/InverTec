@@ -88,6 +88,7 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
     assert respuesta.status_code == 200
     assert respuesta.get_json()[0]["ticker"] == "NVDA"
     assert respuesta.get_json()[0]["riesgo_calculado"] == "25.00"
+    assert respuesta.get_json()[0]["riesgo_nivel"] == "bajo"
 
 
 def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
