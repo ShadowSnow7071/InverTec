@@ -96,6 +96,120 @@ body {
   color: var(--teal);
 }
 
+.simulator-heading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.simulator-intro {
+  color: #d5e4df;
+  font-size: 1.05rem;
+}
+
+.simulator-status {
+  background: rgba(103, 232, 194, 0.12);
+  border: 1px solid rgba(103, 232, 194, 0.35);
+  border-radius: 999px;
+  color: var(--teal);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.75rem;
+  white-space: nowrap;
+}
+
+.simulator-label {
+  color: #f7c873;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.55rem;
+}
+
+.simulator-control {
+  border-color: #52756e;
+  border-width: 1px;
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 194, 0.04);
+  font-size: 1.05rem;
+  min-height: 3rem;
+}
+
+.simulator-control:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 0.22rem rgba(103, 232, 194, 0.2);
+}
+
+.risk-guide {
+  align-items: center;
+  background: #0d181b;
+  border: 1px solid #294a47;
+  border-left: 4px solid var(--amber);
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1.25rem;
+  padding: 0.8rem 1rem;
+}
+
+.risk-guide-title,
+.risk-guide-range {
+  color: #d9e7e2;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.risk-chip {
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.35rem 0.65rem;
+}
+
+.risk-chip-exposure {
+  background: rgba(103, 232, 194, 0.16);
+  color: var(--teal);
+}
+
+.risk-chip-volatility {
+  background: rgba(247, 200, 115, 0.16);
+  color: var(--amber);
+}
+
+.risk-plus {
+  color: #d9e7e2;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.risk-guide-range {
+  color: #a8bfba;
+  margin-left: auto;
+}
+
+.btn-risk {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1b211b;
+  font-weight: 800;
+}
+
+.btn-risk:hover {
+  background: #ffe09a;
+  border-color: #ffe09a;
+  color: #1b211b;
+}
+
+#resultado-operacion {
+  border-width: 1px;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-top: 1.25rem !important;
+  padding: 1rem 1.1rem;
+}
+
 .eyebrow {
   color: var(--coral);
   font-size: 0.72rem;
@@ -242,5 +356,19 @@ body {
 
   .navbar .btn {
     font-size: 0.78rem;
+  }
+
+  .simulator-heading {
+    display: block;
+  }
+
+  .simulator-status {
+    display: inline-block;
+    margin-top: 0.8rem;
+  }
+
+  .risk-guide-range {
+    flex-basis: 100%;
+    margin-left: 0;
   }
 }

@@ -80,19 +80,25 @@
 
 <section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
-    <h2 id="simulador-titulo" class="h5">Simular operación</h2>
-    <p class="text-muted">Consulta el riesgo antes de confirmar una compra o venta.</p>
+    <div class="simulator-heading">
+      <div>
+        <p class="eyebrow mb-1">Decide con información</p>
+        <h2 id="simulador-titulo" class="h4 mb-2">Simular operación</h2>
+        <p class="simulator-intro mb-0">Consulta el riesgo antes de confirmar una compra o venta.</p>
+      </div>
+      <span class="simulator-status">Paso 1 de 2</span>
+    </div>
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
-        <label class="form-label" for="tipo-operacion">Operación</label>
-        <select class="form-select" id="tipo-operacion">
+        <label class="form-label simulator-label" for="tipo-operacion">Operación</label>
+        <select class="form-select simulator-control" id="tipo-operacion">
           <option value="comprar">Comprar</option>
           <option value="vender">Vender</option>
         </select>
       </div>
       <div class="col-md-4">
-        <label class="form-label" for="accion-operacion">Acción</label>
-        <select class="form-select" id="accion-operacion">
+        <label class="form-label simulator-label" for="accion-operacion">Acción</label>
+        <select class="form-select simulator-control" id="accion-operacion">
           {% for accion in catalogo %}
           <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}">
             {{ accion.ticker }} - {{ accion.nombre_empresa }}
@@ -101,16 +107,23 @@
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label" for="cantidad-operacion">Cantidad</label>
-        <input class="form-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
+        <label class="form-label simulator-label" for="cantidad-operacion">Cantidad</label>
+        <input class="form-control simulator-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
       </div>
       <div class="col-md-3">
-        <label class="form-label" for="precio-operacion">Precio unitario</label>
-        <input class="form-control" id="precio-operacion" type="number" readonly />
+        <label class="form-label simulator-label" for="precio-operacion">Precio unitario</label>
+        <input class="form-control simulator-control" id="precio-operacion" type="number" readonly />
       </div>
     </div>
+    <div class="risk-guide" aria-label="Cómo se calcula el riesgo">
+      <span class="risk-guide-title">El riesgo combina</span>
+      <span class="risk-chip risk-chip-exposure">60% exposición al saldo</span>
+      <span class="risk-plus">+</span>
+      <span class="risk-chip risk-chip-volatility">volatilidad de la acción</span>
+      <span class="risk-guide-range">Resultado de 0 a 100</span>
+    </div>
     <div class="d-flex gap-2 align-items-center mt-3">
-      <button class="btn btn-outline-primary" id="consultar-riesgo" type="button">Consultar riesgo</button>
+      <button class="btn btn-risk" id="consultar-riesgo" type="button">Consultar riesgo</button>
       <button class="btn btn-primary" id="confirmar-operacion" type="button" disabled>Confirmar operación</button>
     </div>
     <div class="alert mt-3 d-none" id="resultado-operacion" role="status"></div>
