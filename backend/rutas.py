@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, make_response, redirect, render_template, request, url_for
 from flask_jwt_extended import (
     current_user,
     get_jwt_identity,
@@ -6,6 +6,7 @@ from flask_jwt_extended import (
     set_access_cookies,
     set_refresh_cookies,
     unset_jwt_cookies,
+    verify_jwt_in_request,
 )
 
 from backend.servicios.acciones import AccionServicio
@@ -18,18 +19,33 @@ acciones = AccionServicio()
 portafolio = PortafolioServicio()
 
 
+def _usuario_publico():
+    try:
+        verify_jwt_in_request(optional=True)
+    except Exception:
+        return None, True
+    return current_user, False
+
+
+def _respuesta_publica(templateo, usuario, limpiar_cookies, **contexto):
+    respuesta = make_response(render_template(templateo, usuario_actual=usuario, **contexto))
+    if limpiar_cookies:
+        unset_jwt_cookies(respuesta)
+    return respuesta
+
+
 @bp.get("/")
-@jwt_required(optional=True)
 def index():
-    return render_template("index.html", usuario_actual=current_user)
+    usuario, limpiar_cookies = _usuario_publico()
+    return _respuesta_publica("index.html", usuario, limpiar_cookies)
 
 
 @bp.get("/registro")
-@jwt_required(optional=True)
 def registro_form():
-    if current_user:
+    usuario, limpiar_cookies = _usuario_publico()
+    if usuario:
         return redirect(url_for("main.perfil"))
-    return render_template("registro.html")
+    return _respuesta_publica("registro.html", usuario, limpiar_cookies)
 
 
 @bp.post("/registro")
@@ -51,11 +67,11 @@ def registro_post():
 
 
 @bp.get("/login")
-@jwt_required(optional=True)
 def login_form():
-    if current_user:
+    usuario, limpiar_cookies = _usuario_publico()
+    if usuario:
         return redirect(url_for("main.perfil"))
-    return render_template("login.html")
+    return _respuesta_publica("login.html", usuario, limpiar_cookies)
 
 
 @bp.post("/login")

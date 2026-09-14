@@ -3,7 +3,7 @@
 {% block title %}Mi portafolio | InverTec{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="portfolio-heading d-flex justify-content-between align-items-center mb-4">
   <div>
     <h1 class="h3 mb-1">Hola, {{ usuario_actual.nombre }}</h1>
     <p class="text-muted mb-0">{{ usuario_actual.correo }}</p>
@@ -11,9 +11,9 @@
   <span class="badge text-bg-secondary">{{ usuario_actual.rol.value }}</span>
 </div>
 
-<div class="card mb-4">
+<div class="card balance-card mb-4">
   <div class="card-body">
-    <p class="text-muted mb-1">Saldo virtual</p>
+    <p class="text-uppercase small fw-semibold text-muted mb-1">Saldo disponible</p>
     <p class="display-6 mb-0">${{ datos_portafolio.saldo_virtual }}</p>
   </div>
 </div>
@@ -40,7 +40,6 @@
     </tbody>
   </table>
 </div>
-<p class="text-muted d-none" id="sin-resultados-movimientos">No hay movimientos que coincidan con los filtros.</p>
 {% else %}
 <p class="text-muted mb-4">Todavía no tienes posiciones.</p>
 {% endif %}
@@ -68,7 +67,7 @@
   </table>
 </div>
 
-<section class="card mb-4" aria-labelledby="simulador-titulo">
+<section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
     <h2 id="simulador-titulo" class="h5">Simular operación</h2>
     <p class="text-muted">Consulta el riesgo antes de confirmar una compra o venta.</p>
@@ -134,7 +133,7 @@
   </div>
 </div>
 <div class="table-responsive">
-  <table class="table align-middle">
+  <table class="table align-middle" id="tabla-movimientos">
     <thead>
       <tr>
         <th>Tipo</th>
@@ -166,6 +165,7 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted d-none" id="sin-resultados-movimientos">No hay movimientos que coincidan con los filtros.</p>
 {% else %}
 <p class="text-muted">Aún no tienes movimientos registrados.</p>
 {% endif %}
@@ -233,7 +233,6 @@
     });
     const cuerpo = await respuesta.json();
     if (!respuesta.ok) {
-<p class="text-muted d-none" id="sin-resultados-movimientos">No hay movimientos que coincidan con los filtros.</p>
       throw new Error(cuerpo.error || "No fue posible completar la operación");
     }
     return cuerpo;

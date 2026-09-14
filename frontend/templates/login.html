@@ -5,6 +5,7 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-6 col-lg-5">
+    <div class="auth-panel p-4 p-md-5">
     <h1 class="h3 mb-4">Iniciar sesión</h1>
     {% with mensajes = get_flashed_messages(with_categories=true) %}
       {% for categoria, texto in mensajes %}
@@ -22,6 +23,7 @@
       </div>
       <button class="btn btn-primary" type="submit">Entrar</button>
     </form>
+    </div>
   </div>
 </div>
 {% endblock %}
