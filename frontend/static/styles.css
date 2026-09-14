@@ -96,6 +96,42 @@ body {
   color: var(--teal);
 }
 
+.eyebrow {
+  color: var(--coral);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.market-search {
+  align-items: center;
+  display: flex;
+  position: relative;
+  width: min(100%, 280px);
+}
+
+.market-search > span {
+  color: var(--teal);
+  font-size: 1.35rem;
+  left: 0.8rem;
+  line-height: 1;
+  position: absolute;
+  z-index: 1;
+}
+
+.market-search .form-control {
+  padding-left: 2.25rem;
+}
+
+#tabla-mercado tbody tr {
+  cursor: pointer;
+}
+
+#tabla-mercado tbody tr:hover td:first-child {
+  color: var(--teal);
+}
+
 .table {
   --bs-table-bg: var(--surface);
   --bs-table-color: var(--ink);

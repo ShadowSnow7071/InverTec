@@ -44,10 +44,20 @@
 <p class="text-muted mb-4">Todavía no tienes posiciones.</p>
 {% endif %}
 
-<h2 class="h5">Mercado disponible</h2>
-<p class="text-muted">Los precios de referencia se actualizan al seleccionar una acción en el simulador.</p>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+  <div>
+    <p class="eyebrow mb-1">Explora el mercado</p>
+    <h2 class="h5 mb-1">Acciones disponibles</h2>
+    <p class="text-muted mb-0">Los precios de referencia se actualizan al seleccionar una acción. Busca por ticker o empresa para simular.</p>
+  </div>
+  <div class="market-search">
+    <label class="visually-hidden" for="buscar-acciones">Buscar acciones</label>
+    <span aria-hidden="true">⌕</span>
+    <input class="form-control" id="buscar-acciones" type="search" placeholder="Buscar AAPL o Apple" />
+  </div>
+</div>
 <div class="table-responsive mb-4">
-  <table class="table align-middle">
+  <table class="table align-middle" id="tabla-mercado">
     <thead>
       <tr>
         <th>Ticker</th>
@@ -57,7 +67,7 @@
     </thead>
     <tbody>
       {% for accion in catalogo %}
-      <tr data-ticker="{{ accion.ticker }}">
+      <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}">
         <td class="fw-semibold">{{ accion.ticker }}</td>
         <td>{{ accion.nombre_empresa }}</td>
         <td class="text-end" data-precio-referencia>${{ accion.precio_actual }}</td>
@@ -66,6 +76,7 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
 
 <section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
@@ -180,6 +191,8 @@
   const consultarRiesgo = document.getElementById("consultar-riesgo");
   const confirmarOperacion = document.getElementById("confirmar-operacion");
   const resultadoOperacion = document.getElementById("resultado-operacion");
+  const buscarAcciones = document.getElementById("buscar-acciones");
+  const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   let simulacionValida = false;
   let riesgoActual = null;
 
@@ -242,6 +255,28 @@
   cantidadOperacion.addEventListener("input", () => invalidarSimulacion());
   tipoOperacion.addEventListener("change", () => invalidarSimulacion());
   actualizarPrecio();
+
+  function filtrarMercado() {
+    const consulta = buscarAcciones.value.trim().toLowerCase();
+    const filas = [...document.querySelectorAll("#tabla-mercado tbody tr")];
+    const coincidencias = filas.filter((fila) => {
+      const texto = `${fila.dataset.ticker} ${fila.dataset.nombre}`.toLowerCase();
+      return texto.includes(consulta);
+    });
+
+    filas.forEach((fila) => fila.classList.add("d-none"));
+    coincidencias.slice(0, 10).forEach((fila) => fila.classList.remove("d-none"));
+    sinResultadosMercado.classList.toggle("d-none", coincidencias.length > 0);
+  }
+
+  buscarAcciones.addEventListener("input", filtrarMercado);
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
+    fila.addEventListener("click", () => {
+      accionOperacion.value = fila.dataset.ticker;
+      actualizarPrecio();
+      document.getElementById("simulador-titulo").scrollIntoView({behavior: "smooth", block: "center"});
+    });
+  });
 
   consultarRiesgo.addEventListener("click", async () => {
     invalidarSimulacion(null);
