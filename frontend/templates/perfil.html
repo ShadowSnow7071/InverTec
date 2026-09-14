@@ -11,9 +11,9 @@
   <span class="badge text-bg-secondary">{{ usuario_actual.rol.value }}</span>
 </div>
 
-<div class="card mb-4">
+<div class="card balance-card mb-4">
   <div class="card-body">
-    <p class="text-muted mb-1">Saldo virtual</p>
+    <p class="text-uppercase small fw-semibold text-muted mb-1">Saldo disponible</p>
     <p class="display-6 mb-0">${{ datos_portafolio.saldo_virtual }}</p>
   </div>
 </div>
@@ -67,7 +67,7 @@
   </table>
 </div>
 
-<section class="card mb-4" aria-labelledby="simulador-titulo">
+<section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
     <h2 id="simulador-titulo" class="h5">Simular operación</h2>
     <p class="text-muted">Consulta el riesgo antes de confirmar una compra o venta.</p>
