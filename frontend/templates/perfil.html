@@ -86,7 +86,6 @@
         <h2 id="simulador-titulo" class="h4 mb-2">Simular operación</h2>
         <p class="simulator-intro mb-0">Consulta el riesgo antes de confirmar una compra o venta.</p>
       </div>
-      <span class="simulator-status">Paso 1 de 2</span>
     </div>
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
@@ -115,12 +114,21 @@
         <input class="form-control simulator-control" id="precio-operacion" type="number" readonly />
       </div>
     </div>
-    <div class="risk-guide" aria-label="Cómo se calcula el riesgo">
-      <span class="risk-guide-title">El riesgo combina</span>
-      <span class="risk-chip risk-chip-exposure">60% exposición al saldo</span>
-      <span class="risk-plus">+</span>
-      <span class="risk-chip risk-chip-volatility">volatilidad de la acción</span>
-      <span class="risk-guide-range">Resultado de 0 a 100</span>
+    <div class="risk-guide d-none" id="risk-guide" aria-live="polite" aria-label="Resultado del riesgo">
+      <div class="risk-result-values">
+        <span class="risk-result-label">Riesgo calculado</span>
+        <strong id="riesgo-calculado">--</strong>
+        <span class="risk-result-label">Nivel</span>
+        <strong id="riesgo-nivel">--</strong>
+      </div>
+      <div class="risk-explanation">
+        <strong>¿Cómo se calcula?</strong>
+        <span id="explicacion-riesgo">El riesgo combina la exposición de tu operación con la volatilidad de la acción.</span>
+        <div class="risk-breakdown">
+          <span>Exposición: <strong id="riesgo-exposicion">--</strong></span>
+          <span>Volatilidad: <strong id="riesgo-volatilidad">--</strong></span>
+        </div>
+      </div>
     </div>
     <div class="d-flex gap-2 align-items-center mt-3">
       <button class="btn btn-risk" id="consultar-riesgo" type="button">Consultar riesgo</button>
@@ -204,6 +212,11 @@
   const consultarRiesgo = document.getElementById("consultar-riesgo");
   const confirmarOperacion = document.getElementById("confirmar-operacion");
   const resultadoOperacion = document.getElementById("resultado-operacion");
+  const riskGuide = document.getElementById("risk-guide");
+  const riesgoCalculado = document.getElementById("riesgo-calculado");
+  const riesgoNivel = document.getElementById("riesgo-nivel");
+  const riesgoExposicion = document.getElementById("riesgo-exposicion");
+  const riesgoVolatilidad = document.getElementById("riesgo-volatilidad");
   const buscarAcciones = document.getElementById("buscar-acciones");
   const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   let simulacionValida = false;
@@ -213,6 +226,7 @@
     simulacionValida = false;
     riesgoActual = null;
     confirmarOperacion.disabled = true;
+    riskGuide.classList.add("d-none");
     if (mensaje) mostrarResultado(mensaje, "warning");
   }
 
@@ -298,15 +312,14 @@
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
       });
-      const nivelTexto = cuerpo.riesgo_nivel ? ` Nivel: ${cuerpo.riesgo_nivel}.` : "";
-      mostrarResultado(
-        `Riesgo calculado: ${cuerpo.riesgo_calculado}/100.` +
-        ` Se calcula con 60% de la exposición (${cuerpo.exposicion_porcentaje}% del saldo) ` +
-        `más la volatilidad de ${cuerpo.volatilidad_porcentaje}%.` +
-        `${nivelTexto} Revisa estos datos antes de confirmar.`,
-        "info",
-      );
+      resultadoOperacion.className = "alert mt-3 d-none";
       riesgoActual = cuerpo.riesgo_calculado;
+      riesgoCalculado.textContent = `${cuerpo.riesgo_calculado}/100`;
+      riesgoNivel.textContent = cuerpo.riesgo_nivel;
+      riesgoNivel.dataset.nivel = cuerpo.riesgo_nivel;
+      riesgoExposicion.textContent = `${cuerpo.exposicion_porcentaje}% del saldo`;
+      riesgoVolatilidad.textContent = `${cuerpo.volatilidad_porcentaje}%`;
+      riskGuide.classList.remove("d-none");
       simulacionValida = true;
       confirmarOperacion.disabled = false;
     } catch (error) {
