@@ -97,10 +97,12 @@ class AccionServicio:
         clave = (ticker or "").strip().upper()
         if clave not in CATALOGO:
             return None
+        volatilidad = Decimal(CATALOGO[clave]["volatilidad"]) * Decimal("100")
         return {
             "ticker": clave,
             "nombre_empresa": CATALOGO[clave]["nombre_empresa"],
             "precio_actual": cls._precio_actual(clave),
+            "volatilidad": str(volatilidad.quantize(Decimal("0.01"))),
         }
 
     @classmethod

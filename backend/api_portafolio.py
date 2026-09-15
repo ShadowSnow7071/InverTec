@@ -41,6 +41,20 @@ def movimientos():
     return jsonify(servicio.listar_movimientos(usuario.id))
 
 
+@bp.get("/movimientos/<int:movimiento_id>")
+@jwt_required()
+def movimiento_detalle(movimiento_id):
+    usuario = usuario_actual()
+    if usuario is None:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    try:
+        resultado = servicio.obtener_movimiento(usuario.id, movimiento_id)
+    except ErrorNegocio as exc:
+        return json_error(exc.mensaje, exc.codigo)
+    return jsonify(resultado)
+
+
 @bp.post("/comprar")
 @jwt_required()
 def comprar():
