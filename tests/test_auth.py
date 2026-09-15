@@ -104,6 +104,30 @@ def test_patch_perfil_actualiza_datos_del_usuario(client):
     assert cuerpo["saldo_virtual"] == "10000.00"
 
 
+def test_admin_html_muestra_usuarios_para_admin(client, app):
+    client.post("/api/auth/registro", json=datos_registro("admin_ui@example.com"))
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "admin_ui@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/admin/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Usuarios" in contenido
+    assert "admin_ui@example.com" in contenido
+
+
 def test_login_rechaza_credenciales_invalidas(client):
     respuesta = client.post(
         "/api/auth/login",
