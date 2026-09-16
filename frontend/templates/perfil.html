@@ -107,39 +107,6 @@
 </div>
 <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
 
-<section class="card detail-card mb-4" aria-labelledby="detalle-accion-titulo">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-      <div>
-        <p class="eyebrow mb-1">Detalle de la acción</p>
-        <h2 id="detalle-accion-titulo" class="h5 mb-0">Selecciona una acción</h2>
-      </div>
-      <span class="badge rounded-pill" id="detalle-accion-riesgo" data-nivel="bajo">Sin riesgo</span>
-    </div>
-    <div class="detail-grid">
-      <div class="detail-item">
-        <span class="detail-label">Ticker</span>
-        <strong id="detalle-accion-ticker">--</strong>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">Empresa</span>
-        <strong id="detalle-accion-empresa">--</strong>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">Precio</span>
-        <strong id="detalle-accion-precio">--</strong>
-      </div>
-      <div class="detail-item">
-        <span class="detail-label">Volatilidad</span>
-        <strong id="detalle-accion-volatilidad">--</strong>
-      </div>
-    </div>
-    <p class="detail-note mb-0" id="detalle-accion-explicacion">
-      Elige una empresa del mercado para revisar su precio actual, volatilidad y perfil de riesgo.
-    </p>
-  </div>
-</section>
-
 <section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
     <div class="simulator-heading">
@@ -281,25 +248,10 @@
   const riesgoNivel = document.getElementById("riesgo-nivel");
   const riesgoExposicion = document.getElementById("riesgo-exposicion");
   const riesgoVolatilidad = document.getElementById("riesgo-volatilidad");
-  const detalleAccionTitulo = document.getElementById("detalle-accion-titulo");
-  const detalleAccionTicker = document.getElementById("detalle-accion-ticker");
-  const detalleAccionEmpresa = document.getElementById("detalle-accion-empresa");
-  const detalleAccionPrecio = document.getElementById("detalle-accion-precio");
-  const detalleAccionVolatilidad = document.getElementById("detalle-accion-volatilidad");
-  const detalleAccionRiesgo = document.getElementById("detalle-accion-riesgo");
-  const detalleAccionExplicacion = document.getElementById("detalle-accion-explicacion");
   const buscarAcciones = document.getElementById("buscar-acciones");
   const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   let simulacionValida = false;
   let riesgoActual = null;
-
-  function nivelRiesgoBasico(valor) {
-    const numero = Number.parseFloat(valor ?? "0");
-    if (Number.isNaN(numero)) return "bajo";
-    if (numero < 35) return "bajo";
-    if (numero < 70) return "medio";
-    return "alto";
-  }
 
   function invalidarSimulacion(mensaje = "Consulta el riesgo para habilitar la confirmación.") {
     simulacionValida = false;
@@ -330,36 +282,6 @@
     if (fila) fila.textContent = `$${precio}`;
   }
 
-  async function actualizarDetalleAccion() {
-    const ticker = accionOperacion.value;
-    try {
-      const respuesta = await fetch(`/api/acciones/${ticker}`);
-      const cuerpo = await respuesta.json();
-      if (!respuesta.ok) {
-        throw new Error(cuerpo.error || "No fue posible cargar el detalle de la acción");
-      }
-
-      const nivel = nivelRiesgoBasico(cuerpo.volatilidad);
-      detalleAccionTitulo.textContent = `${cuerpo.ticker} · ${cuerpo.nombre_empresa}`;
-      detalleAccionTicker.textContent = cuerpo.ticker;
-      detalleAccionEmpresa.textContent = cuerpo.nombre_empresa;
-      detalleAccionPrecio.textContent = `$${cuerpo.precio_actual}`;
-      detalleAccionVolatilidad.textContent = `${cuerpo.volatilidad}%`;
-      detalleAccionRiesgo.textContent = nivel;
-      detalleAccionRiesgo.dataset.nivel = nivel;
-      detalleAccionExplicacion.textContent = `${cuerpo.nombre_empresa} tiene una volatilidad de ${cuerpo.volatilidad}% y un riesgo base ${nivel}.`;
-    } catch (error) {
-      detalleAccionTitulo.textContent = "Acción no disponible";
-      detalleAccionTicker.textContent = ticker;
-      detalleAccionEmpresa.textContent = "No se pudo cargar";
-      detalleAccionPrecio.textContent = "--";
-      detalleAccionVolatilidad.textContent = "--";
-      detalleAccionRiesgo.textContent = "Sin riesgo";
-      detalleAccionRiesgo.dataset.nivel = "bajo";
-      detalleAccionExplicacion.textContent = error.message;
-    }
-  }
-
   async function actualizarPrecio() {
     const opcion = accionOperacion.selectedOptions[0];
     precioOperacion.value = "";
@@ -374,7 +296,6 @@
       }
       precioOperacion.value = cuerpo.precio_actual;
       actualizarPrecioTabla(accionOperacion.value, cuerpo.precio_actual);
-      await actualizarDetalleAccion();
     } catch (error) {
       precioOperacion.value = opcion.dataset.precioDemo;
       mostrarResultado(`${error.message}. Se usará el precio demo.`, "warning");

@@ -55,13 +55,15 @@ body {
 .btn-outline-primary:hover {
   background: var(--teal);
   border-color: var(--teal);
+  color: #102321;
 }
 
 .card {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
-  background: rgba(18, 28, 33, 0.92);
+  background: var(--surface) !important;
+  color: var(--ink);
 }
 
 .display-6 {
@@ -255,61 +257,6 @@ body {
 
 .market-search .form-control {
   padding-left: 2.25rem;
-}
-
-.detail-card {
-  border-color: rgba(103, 232, 194, 0.26);
-}
-
-.detail-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-.detail-item {
-  background: rgba(12, 23, 29, 0.72);
-  border: 1px solid rgba(103, 232, 194, 0.12);
-  border-radius: 8px;
-  display: grid;
-  gap: 0.3rem;
-  padding: 0.9rem 1rem;
-}
-
-.detail-label {
-  color: var(--muted);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.detail-note {
-  color: #dfeae7;
-  margin-top: 1rem;
-}
-
-#detalle-accion-riesgo {
-  background: rgba(103, 232, 194, 0.18);
-  color: #dffef5;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  padding: 0.45rem 0.8rem;
-  text-transform: capitalize;
-}
-
-#detalle-accion-riesgo[data-nivel="bajo"] {
-  background: rgba(103, 232, 194, 0.2);
-  color: #dffef5;
-}
-
-#detalle-accion-riesgo[data-nivel="medio"] {
-  background: rgba(247, 200, 115, 0.2);
-  color: #fff1c5;
-}
-
-#detalle-accion-riesgo[data-nivel="alto"] {
-  background: rgba(255, 128, 102, 0.2);
-  color: #ffd5ca;
 }
 
 #tabla-mercado tbody tr {
