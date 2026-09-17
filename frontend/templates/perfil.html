@@ -18,35 +18,6 @@
   </div>
 </div>
 
-<section class="card mb-4" aria-labelledby="perfil-editar-titulo">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
-      <div>
-        <p class="eyebrow mb-1">Cuenta</p>
-        <h2 id="perfil-editar-titulo" class="h5 mb-0">Editar perfil</h2>
-      </div>
-    </div>
-    <form id="perfil-form" class="row g-3" novalidate>
-      <div class="col-md-4">
-        <label class="form-label" for="perfil-nombre">Nombre</label>
-        <input class="form-control" id="perfil-nombre" name="nombre" type="text" value="{{ usuario_actual.nombre }}" required maxlength="120" />
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="perfil-correo">Correo</label>
-        <input class="form-control" id="perfil-correo" name="correo" type="email" value="{{ usuario_actual.correo }}" required />
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="perfil-password">Nueva contraseña</label>
-        <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" />
-      </div>
-      <div class="col-12 d-flex justify-content-end">
-        <button class="btn btn-primary" type="submit">Guardar cambios</button>
-      </div>
-    </form>
-    <div class="alert mt-3 d-none" id="perfil-resultado" role="status"></div>
-  </div>
-</section>
-
 <h2 class="h5">Posiciones</h2>
 {% if datos_portafolio.posiciones %}
 <div class="table-responsive mb-4">
@@ -241,8 +212,6 @@
   const consultarRiesgo = document.getElementById("consultar-riesgo");
   const confirmarOperacion = document.getElementById("confirmar-operacion");
   const resultadoOperacion = document.getElementById("resultado-operacion");
-  const perfilForm = document.getElementById("perfil-form");
-  const perfilResultado = document.getElementById("perfil-resultado");
   const riskGuide = document.getElementById("risk-guide");
   const riesgoCalculado = document.getElementById("riesgo-calculado");
   const riesgoNivel = document.getElementById("riesgo-nivel");
@@ -269,12 +238,6 @@
   function mostrarResultado(mensaje, tipo) {
     resultadoOperacion.textContent = mensaje;
     resultadoOperacion.className = `alert alert-${tipo} mt-3`;
-  }
-
-  function mostrarPerfilResultado(mensaje, tipo) {
-    perfilResultado.textContent = mensaje;
-    perfilResultado.className = `alert alert-${tipo} mt-3`;
-    perfilResultado.classList.remove("d-none");
   }
 
   function actualizarPrecioTabla(ticker, precio) {
@@ -341,38 +304,6 @@
       document.getElementById("simulador-titulo").scrollIntoView({behavior: "smooth", block: "center"});
     });
   });
-
-  if (perfilForm) {
-    perfilForm.addEventListener("submit", async (evento) => {
-      evento.preventDefault();
-      const payload = {
-        nombre: document.getElementById("perfil-nombre").value.trim(),
-        correo: document.getElementById("perfil-correo").value.trim(),
-      };
-      const password = document.getElementById("perfil-password").value.trim();
-      if (password) payload.password = password;
-
-      try {
-        const respuesta = await fetch("/api/usuarios/me", {
-          method: "PATCH",
-          headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
-          body: JSON.stringify(payload),
-        });
-        const cuerpo = await respuesta.json();
-        if (!respuesta.ok) {
-          throw new Error(cuerpo.error || "No fue posible actualizar el perfil");
-        }
-
-        document.getElementById("perfil-nombre").value = cuerpo.nombre;
-        document.getElementById("perfil-correo").value = cuerpo.correo;
-        document.getElementById("perfil-password").value = "";
-        mostrarPerfilResultado("Perfil actualizado correctamente.", "success");
-        document.querySelector(".portfolio-heading h1").textContent = `Hola, ${cuerpo.nombre}`;
-      } catch (error) {
-        mostrarPerfilResultado(error.message, "danger");
-      }
-    });
-  }
 
   consultarRiesgo.addEventListener("click", async () => {
     invalidarSimulacion(null);

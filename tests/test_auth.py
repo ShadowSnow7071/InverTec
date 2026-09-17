@@ -61,16 +61,16 @@ def test_perfil_sin_token_rechaza_acceso(client):
     assert respuesta.get_json() == {"error": "Token requerido"}
 
 
-def test_perfil_html_muestra_formulario_de_edicion(client):
-    client.post("/api/auth/registro", json=datos_registro("perfil_html@example.com"))
+def test_configuracion_html_muestra_formulario_de_edicion(client):
+    client.post("/api/auth/registro", json=datos_registro("config_html@example.com"))
     login = client.post(
         "/api/auth/login",
-        json={"correo": "perfil_html@example.com", "password": "secreto12"},
+        json={"correo": "config_html@example.com", "password": "secreto12"},
     )
     token = login.get_json()["access_token"]
 
     respuesta = client.get(
-        "/perfil",
+        "/configuracion",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -81,6 +81,27 @@ def test_perfil_html_muestra_formulario_de_edicion(client):
     assert 'name="nombre"' in contenido
     assert 'name="correo"' in contenido
     assert 'name="password"' in contenido
+
+
+def test_perfil_html_muestra_saldo_y_mercado(client):
+    client.post("/api/auth/registro", json=datos_registro("perfil_market@example.com"))
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "perfil_market@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/perfil",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Saldo disponible" in contenido
+    assert "Posiciones" in contenido
+    assert "Acciones disponibles" in contenido
+    assert "Simular operación" in contenido
 
 
 def test_patch_perfil_actualiza_datos_del_usuario(client):

@@ -111,6 +111,13 @@ def perfil():
     )
 
 
+@bp.get("/configuracion")
+@jwt_required()
+def configuracion():
+    usuario = current_user
+    return render_template("configuracion.html", usuario_actual=usuario)
+
+
 @bp.get("/admin/usuarios")
 @rol_admin
 def admin_usuarios():
