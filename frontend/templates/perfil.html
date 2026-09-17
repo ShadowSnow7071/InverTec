@@ -208,11 +208,15 @@
     <div class="row g-4">
       <div class="col-md-6">
         <h3 class="h6 mb-3">Distribución de activos</h3>
-        <canvas id="distribucion-activos" height="200"></canvas>
+        <div style="height: 300px; position: relative;">
+          <canvas id="distribucion-activos"></canvas>
+        </div>
       </div>
       <div class="col-md-6">
         <h3 class="h6 mb-3">Volatilidad por acción</h3>
-        <canvas id="volatilidad-activos" height="200"></canvas>
+        <div style="height: 300px; position: relative;">
+          <canvas id="volatilidad-activos"></canvas>
+        </div>
       </div>
     </div>
     <div class="row g-4 mt-2">
@@ -426,6 +430,9 @@
   }
 
   // Cargar análisis del portafolio
+  let chartDistribucion = null;
+  let chartVolatilidad = null;
+  
   async function cargarAnalisis() {
     try {
       const respuesta = await fetch("/api/portafolio/analisis");
@@ -442,8 +449,9 @@
       
       // Gráfico de distribución de activos
       if (Object.keys(datos.distribucion_activos).length > 0) {
+        if (chartDistribucion) chartDistribucion.destroy();
         const ctxDistribucion = document.getElementById("distribucion-activos").getContext("2d");
-        new Chart(ctxDistribucion, {
+        chartDistribucion = new Chart(ctxDistribucion, {
           type: "doughnut",
           data: {
             labels: Object.keys(datos.distribucion_activos),
@@ -461,24 +469,26 @@
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: {position: "bottom"},
+              legend: {position: "bottom", labels: {padding: 15}},
               tooltip: {callbacks: {label: (ctx) => `${ctx.label}: $${ctx.parsed.toFixed(2)}`}}
             }
           }
         });
       } else {
+        if (chartDistribucion) chartDistribucion.destroy();
         document.getElementById("distribucion-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
       }
       
       // Gráfico de volatilidad
       if (Object.keys(datos.volatilidades).length > 0) {
+        if (chartVolatilidad) chartVolatilidad.destroy();
         const volatilidades = datos.volatilidades;
         const coloresVolatilidad = Object.entries(volatilidades).map(([ticker, nivel]) => {
           return nivel === "alto" ? "#dc3545" : nivel === "medio" ? "#ffc107" : "#198754";
         });
         
         const ctxVolatilidad = document.getElementById("volatilidad-activos").getContext("2d");
-        new Chart(ctxVolatilidad, {
+        chartVolatilidad = new Chart(ctxVolatilidad, {
           type: "bar",
           data: {
             labels: Object.keys(volatilidades),
@@ -514,6 +524,7 @@
           }
         });
       } else {
+        if (chartVolatilidad) chartVolatilidad.destroy();
         document.getElementById("volatilidad-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
       }
     } catch (error) {
