@@ -117,10 +117,16 @@ def analisis_portafolio():
     movimientos = servicio.listar_movimientos(usuario.id)
     
     # Análisis de distribución de activos
-    from decimal import Decimal
     distribucion = {}
     volatilidades = {}
-    saldo_virtual = float(portafolio["saldo_virtual"])
+    
+    # Agrupar movimientos más recientes por ticker
+    ultimos_movimientos = {}
+    for movimiento in movimientos:
+        ticker = movimiento["ticker"]
+        # Guardar el movimiento más reciente (últimos movimientos están primero)
+        if ticker not in ultimos_movimientos:
+            ultimos_movimientos[ticker] = movimiento
     
     for posicion in portafolio.get("posiciones", []):
         ticker = posicion["ticker"]
@@ -130,18 +136,13 @@ def analisis_portafolio():
         valor_posicion = cantidad * precio
         distribucion[ticker] = valor_posicion
         
-        # Calcular riesgo usando la fórmula real: (exposicion * 0.60) + (volatilidad * 100)
-        exposicion = (valor_posicion / saldo_virtual) * 100
-        volatilidad_decimal = float(accion["volatilidad"])  # ya es 0-1
-        riesgo_valor = (exposicion * 0.60) + (volatilidad_decimal * 100)
-        riesgo_valor = min(max(riesgo_valor, 0), 100)
-        
-        if riesgo_valor < 35:
-            volatilidades[ticker] = "bajo"
-        elif riesgo_valor < 70:
-            volatilidades[ticker] = "medio"
+        # Usar el riesgo_nivel del movimiento más reciente de esta acción
+        if ticker in ultimos_movimientos:
+            riesgo_nivel = ultimos_movimientos[ticker]["riesgo_nivel"]
+            volatilidades[ticker] = riesgo_nivel
         else:
-            volatilidades[ticker] = "alto"
+            # Si no hay movimientos (no debería ocurrir), marcar como "sin datos"
+            volatilidades[ticker] = "bajo"
     
     valor_total_posiciones = sum(distribucion.values())
     
