@@ -61,6 +61,94 @@ def test_perfil_sin_token_rechaza_acceso(client):
     assert respuesta.get_json() == {"error": "Token requerido"}
 
 
+def test_configuracion_html_muestra_formulario_de_edicion(client):
+    client.post("/api/auth/registro", json=datos_registro("config_html@example.com"))
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "config_html@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/configuracion",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Editar perfil" in contenido
+    assert 'id="perfil-form"' in contenido
+    assert 'name="nombre"' in contenido
+    assert 'name="correo"' in contenido
+    assert 'name="password"' in contenido
+
+
+def test_perfil_html_muestra_saldo_y_mercado(client):
+    client.post("/api/auth/registro", json=datos_registro("perfil_market@example.com"))
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "perfil_market@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/perfil",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Saldo disponible" in contenido
+    assert "Posiciones" in contenido
+    assert "Acciones disponibles" in contenido
+    assert "Simular operación" in contenido
+
+
+def test_patch_perfil_actualiza_datos_del_usuario(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("perfil@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.patch(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "nombre": "Ana Updated",
+            "correo": "nuevo@example.com",
+            "password": "nueva123456",
+        },
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["nombre"] == "Ana Updated"
+    assert cuerpo["correo"] == "nuevo@example.com"
+    assert cuerpo["saldo_virtual"] == "10000.00"
+
+
+def test_admin_html_muestra_usuarios_para_admin(client, app):
+    client.post("/api/auth/registro", json=datos_registro("admin_ui@example.com"))
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "admin_ui@example.com", "password": "secreto12"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/admin/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Usuarios" in contenido
+    assert "admin_ui@example.com" in contenido
+
+
 def test_login_rechaza_credenciales_invalidas(client):
     respuesta = client.post(
         "/api/auth/login",

@@ -8,7 +8,11 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
     verify_jwt_in_request,
 )
+from sqlalchemy import select
 
+from backend.conexion import db
+from backend.modelos import Usuario
+from backend.seguridad import rol_admin
 from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import AuthServicio, ErrorNegocio
 from backend.servicios.portafolio import PortafolioServicio
@@ -104,6 +108,35 @@ def perfil():
         datos_portafolio=datos_portafolio,
         movimientos=movimientos,
         catalogo=catalogo,
+    )
+
+
+@bp.get("/configuracion")
+@jwt_required()
+def configuracion():
+    usuario = current_user
+    return render_template("configuracion.html", usuario_actual=usuario)
+
+
+@bp.get("/admin/usuarios")
+@rol_admin
+def admin_usuarios():
+    usuarios = db.session.scalars(select(Usuario).order_by(Usuario.id)).all()
+    return render_template(
+        "admin_usuarios.html",
+        usuario_actual=current_user,
+        usuarios=[
+            {
+                "id": usuario.id,
+                "nombre": usuario.nombre,
+                "correo": usuario.correo,
+                "rol": usuario.rol.value,
+                "saldo_virtual": str(usuario.portafolio.saldo_virtual)
+                if usuario.portafolio is not None
+                else "0.00",
+            }
+            for usuario in usuarios
+        ],
     )
 
 

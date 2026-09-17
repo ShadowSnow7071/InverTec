@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios | InverTec{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="eyebrow mb-1">Administración</p>
+    <h1 class="h3 mb-0">Usuarios</h1>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Rol</th>
+            <th class="text-end">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for usuario in usuarios %}
+          <tr>
+            <td>{{ usuario.id }}</td>
+            <td>{{ usuario.nombre }}</td>
+            <td>{{ usuario.correo }}</td>
+            <td>
+              <span class="badge text-bg-{{ 'primary' if usuario.rol == 'administrador' else 'secondary' }}">
+                {{ usuario.rol }}
+              </span>
+            </td>
+            <td class="text-end">${{ usuario.saldo_virtual }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

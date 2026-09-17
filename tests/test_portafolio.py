@@ -196,6 +196,19 @@ def test_api_accion_devuelve_precio_demo_sin_api_key(client, monkeypatch):
     }
 
 
+def test_api_accion_incluye_volatilidad_y_detalle(client, monkeypatch):
+    monkeypatch.delenv("MARKET_DATA_API_KEY", raising=False)
+
+    respuesta = client.get("/api/acciones/AAPL")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["ticker"] == "AAPL"
+    assert cuerpo["nombre_empresa"] == "Apple Inc."
+    assert cuerpo["volatilidad"] == "20.00"
+    assert cuerpo["precio_actual"] == "214.20"
+
+
 def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
     token = registrar_y_obtener_token(client, "riesgo@example.com")
@@ -213,6 +226,56 @@ def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     assert float(cuerpo["exposicion_porcentaje"]) > 0
     assert cuerpo["volatilidad_porcentaje"] == "20.00"
     assert cuerpo["riesgo_nivel"] in {"bajo", "medio", "alto"}
+
+
+def test_api_detalle_movimiento_devuelve_un_movimiento(client, app):
+    token = registrar_y_obtener_token(client, "detalle_mov@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        accion = Accion(ticker="MSFT", nombre_empresa="Microsoft")
+        db.session.add(accion)
+        db.session.flush()
+        movimiento = Movimiento(
+            portafolio_id=usuario.portafolio.id,
+            accion_id=accion.id,
+            tipo=TipoMovimiento.compra,
+            cantidad=Decimal("1.5000"),
+            precio_unitario=Decimal("200.00"),
+            riesgo_calculado=Decimal("42.50"),
+        )
+        db.session.add(movimiento)
+        db.session.commit()
+        movimiento_id = movimiento.id
+
+    respuesta = client.get(
+        f"/api/portafolio/movimientos/{movimiento_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["id"] == movimiento_id
+    assert cuerpo["ticker"] == "MSFT"
+    assert cuerpo["riesgo_calculado"] == "42.50"
+    assert cuerpo["riesgo_nivel"] == "medio"
+
+
+def test_api_usuarios_listado_requiere_rol_administrador(client, app):
+    token = registrar_y_obtener_token(client, "admin@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    respuesta = client.get(
+        "/api/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert isinstance(cuerpo, list)
+    assert any(item["correo"] == "admin@example.com" for item in cuerpo)
 
 
 def test_portafolio_requiere_autenticacion(client):

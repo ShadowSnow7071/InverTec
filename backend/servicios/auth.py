@@ -41,10 +41,14 @@ class AuthServicio:
             raise ErrorNegocio("Correo o contraseña incorrectos", 401)
         return self._respuesta_con_tokens(usuario)
 
+    @staticmethod
+    def _validar_correo(correo):
+        return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo))
+
     def _validar_datos(self, nombre, correo, password):
         if len(nombre) < 2 or len(nombre) > 120:
             raise ErrorNegocio("El nombre debe tener entre 2 y 120 caracteres")
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo):
+        if not self._validar_correo(correo):
             raise ErrorNegocio("El correo no es válido")
         if not password or len(password) < 8:
             raise ErrorNegocio("La contraseña debe tener al menos 8 caracteres")

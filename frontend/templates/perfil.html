@@ -44,10 +44,20 @@
 <p class="text-muted mb-4">Todavía no tienes posiciones.</p>
 {% endif %}
 
-<h2 class="h5">Mercado disponible</h2>
-<p class="text-muted">Los precios de referencia se actualizan al seleccionar una acción en el simulador.</p>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+  <div>
+    <p class="eyebrow mb-1">Explora el mercado</p>
+    <h2 class="h5 mb-1">Acciones disponibles</h2>
+    <p class="text-muted mb-0">Los precios de referencia se actualizan al seleccionar una acción. Busca por ticker o empresa para simular.</p>
+  </div>
+  <div class="market-search">
+    <label class="visually-hidden" for="buscar-acciones">Buscar acciones</label>
+    <span aria-hidden="true">⌕</span>
+    <input class="form-control" id="buscar-acciones" type="search" placeholder="Buscar AAPL o Apple" />
+  </div>
+</div>
 <div class="table-responsive mb-4">
-  <table class="table align-middle">
+  <table class="table align-middle" id="tabla-mercado">
     <thead>
       <tr>
         <th>Ticker</th>
@@ -57,7 +67,7 @@
     </thead>
     <tbody>
       {% for accion in catalogo %}
-      <tr data-ticker="{{ accion.ticker }}">
+      <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}">
         <td class="fw-semibold">{{ accion.ticker }}</td>
         <td>{{ accion.nombre_empresa }}</td>
         <td class="text-end" data-precio-referencia>${{ accion.precio_actual }}</td>
@@ -66,22 +76,28 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
 
 <section class="card simulator-card mb-4" aria-labelledby="simulador-titulo">
   <div class="card-body">
-    <h2 id="simulador-titulo" class="h5">Simular operación</h2>
-    <p class="text-muted">Consulta el riesgo antes de confirmar una compra o venta.</p>
+    <div class="simulator-heading">
+      <div>
+        <p class="eyebrow mb-1">Decide con información</p>
+        <h2 id="simulador-titulo" class="h4 mb-2">Simular operación</h2>
+        <p class="simulator-intro mb-0">Consulta el riesgo antes de confirmar una compra o venta.</p>
+      </div>
+    </div>
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
-        <label class="form-label" for="tipo-operacion">Operación</label>
-        <select class="form-select" id="tipo-operacion">
+        <label class="form-label simulator-label" for="tipo-operacion">Operación</label>
+        <select class="form-select simulator-control" id="tipo-operacion">
           <option value="comprar">Comprar</option>
           <option value="vender">Vender</option>
         </select>
       </div>
       <div class="col-md-4">
-        <label class="form-label" for="accion-operacion">Acción</label>
-        <select class="form-select" id="accion-operacion">
+        <label class="form-label simulator-label" for="accion-operacion">Acción</label>
+        <select class="form-select simulator-control" id="accion-operacion">
           {% for accion in catalogo %}
           <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}">
             {{ accion.ticker }} - {{ accion.nombre_empresa }}
@@ -90,16 +106,32 @@
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label" for="cantidad-operacion">Cantidad</label>
-        <input class="form-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
+        <label class="form-label simulator-label" for="cantidad-operacion">Cantidad</label>
+        <input class="form-control simulator-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
       </div>
       <div class="col-md-3">
-        <label class="form-label" for="precio-operacion">Precio unitario</label>
-        <input class="form-control" id="precio-operacion" type="number" readonly />
+        <label class="form-label simulator-label" for="precio-operacion">Precio unitario</label>
+        <input class="form-control simulator-control" id="precio-operacion" type="number" readonly />
+      </div>
+    </div>
+    <div class="risk-guide d-none" id="risk-guide" aria-live="polite" aria-label="Resultado del riesgo">
+      <div class="risk-result-values">
+        <span class="risk-result-label">Riesgo calculado</span>
+        <strong id="riesgo-calculado">--</strong>
+        <span class="risk-result-label">Nivel</span>
+        <strong id="riesgo-nivel">--</strong>
+      </div>
+      <div class="risk-explanation">
+        <strong>¿Cómo se calcula?</strong>
+        <span id="explicacion-riesgo">El riesgo combina la exposición de tu operación con la volatilidad de la acción.</span>
+        <div class="risk-breakdown">
+          <span>Exposición: <strong id="riesgo-exposicion">--</strong></span>
+          <span>Volatilidad: <strong id="riesgo-volatilidad">--</strong></span>
+        </div>
       </div>
     </div>
     <div class="d-flex gap-2 align-items-center mt-3">
-      <button class="btn btn-outline-primary" id="consultar-riesgo" type="button">Consultar riesgo</button>
+      <button class="btn btn-risk" id="consultar-riesgo" type="button">Consultar riesgo</button>
       <button class="btn btn-primary" id="confirmar-operacion" type="button" disabled>Confirmar operación</button>
     </div>
     <div class="alert mt-3 d-none" id="resultado-operacion" role="status"></div>
@@ -180,6 +212,13 @@
   const consultarRiesgo = document.getElementById("consultar-riesgo");
   const confirmarOperacion = document.getElementById("confirmar-operacion");
   const resultadoOperacion = document.getElementById("resultado-operacion");
+  const riskGuide = document.getElementById("risk-guide");
+  const riesgoCalculado = document.getElementById("riesgo-calculado");
+  const riesgoNivel = document.getElementById("riesgo-nivel");
+  const riesgoExposicion = document.getElementById("riesgo-exposicion");
+  const riesgoVolatilidad = document.getElementById("riesgo-volatilidad");
+  const buscarAcciones = document.getElementById("buscar-acciones");
+  const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   let simulacionValida = false;
   let riesgoActual = null;
 
@@ -187,6 +226,7 @@
     simulacionValida = false;
     riesgoActual = null;
     confirmarOperacion.disabled = true;
+    riskGuide.classList.add("d-none");
     if (mensaje) mostrarResultado(mensaje, "warning");
   }
 
@@ -243,6 +283,28 @@
   tipoOperacion.addEventListener("change", () => invalidarSimulacion());
   actualizarPrecio();
 
+  function filtrarMercado() {
+    const consulta = buscarAcciones.value.trim().toLowerCase();
+    const filas = [...document.querySelectorAll("#tabla-mercado tbody tr")];
+    const coincidencias = filas.filter((fila) => {
+      const texto = `${fila.dataset.ticker} ${fila.dataset.nombre}`.toLowerCase();
+      return texto.includes(consulta);
+    });
+
+    filas.forEach((fila) => fila.classList.add("d-none"));
+    coincidencias.slice(0, 10).forEach((fila) => fila.classList.remove("d-none"));
+    sinResultadosMercado.classList.toggle("d-none", coincidencias.length > 0);
+  }
+
+  buscarAcciones.addEventListener("input", filtrarMercado);
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
+    fila.addEventListener("click", () => {
+      accionOperacion.value = fila.dataset.ticker;
+      actualizarPrecio();
+      document.getElementById("simulador-titulo").scrollIntoView({behavior: "smooth", block: "center"});
+    });
+  });
+
   consultarRiesgo.addEventListener("click", async () => {
     invalidarSimulacion(null);
     try {
@@ -250,15 +312,14 @@
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
       });
-      const nivelTexto = cuerpo.riesgo_nivel ? ` Nivel: ${cuerpo.riesgo_nivel}.` : "";
-      mostrarResultado(
-        `Riesgo calculado: ${cuerpo.riesgo_calculado}/100.` +
-        ` Se calcula con 60% de la exposición (${cuerpo.exposicion_porcentaje}% del saldo) ` +
-        `más la volatilidad de ${cuerpo.volatilidad_porcentaje}%.` +
-        `${nivelTexto} Revisa estos datos antes de confirmar.`,
-        "info",
-      );
+      resultadoOperacion.className = "alert mt-3 d-none";
       riesgoActual = cuerpo.riesgo_calculado;
+      riesgoCalculado.textContent = `${cuerpo.riesgo_calculado}/100`;
+      riesgoNivel.textContent = cuerpo.riesgo_nivel;
+      riesgoNivel.dataset.nivel = cuerpo.riesgo_nivel;
+      riesgoExposicion.textContent = `${cuerpo.exposicion_porcentaje}% del saldo`;
+      riesgoVolatilidad.textContent = `${cuerpo.volatilidad_porcentaje}%`;
+      riskGuide.classList.remove("d-none");
       simulacionValida = true;
       confirmarOperacion.disabled = false;
     } catch (error) {

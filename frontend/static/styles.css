@@ -55,13 +55,15 @@ body {
 .btn-outline-primary:hover {
   background: var(--teal);
   border-color: var(--teal);
+  color: #102321;
 }
 
 .card {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
-  background: rgba(18, 28, 33, 0.92);
+  background: var(--surface) !important;
+  color: var(--ink);
 }
 
 .display-6 {
@@ -93,6 +95,175 @@ body {
 }
 
 .simulator-card h2 {
+  color: var(--teal);
+}
+
+.simulator-heading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.simulator-intro {
+  color: #d5e4df;
+  font-size: 1.05rem;
+}
+
+.simulator-label {
+  color: #f7c873;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.55rem;
+}
+
+.simulator-control {
+  border-color: #52756e;
+  border-width: 1px;
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 194, 0.04);
+  font-size: 1.05rem;
+  min-height: 3rem;
+}
+
+.simulator-control:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 0.22rem rgba(103, 232, 194, 0.2);
+}
+
+.risk-guide {
+  align-items: stretch;
+  background: #0d181b;
+  border: 1px solid #294a47;
+  border-left: 4px solid var(--amber);
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.25rem;
+  padding: 0.8rem 1rem;
+}
+
+.risk-result-values {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.risk-explanation {
+  border-top: 1px solid #294a47;
+  color: #c6d8d3;
+  display: grid;
+  gap: 0.35rem;
+  line-height: 1.45;
+  padding-top: 0.8rem;
+  width: 100%;
+}
+
+.risk-explanation > strong {
+  color: var(--amber);
+  font-size: 0.9rem;
+}
+
+.risk-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.risk-breakdown strong {
+  color: var(--teal);
+}
+
+.risk-result-label {
+  color: #d9e7e2;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+#riesgo-calculado {
+  color: var(--teal);
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+#riesgo-nivel {
+  border-radius: 999px;
+  color: #1b211b;
+  font-size: 1rem;
+  padding: 0.42rem 0.85rem;
+  text-transform: capitalize;
+}
+
+#riesgo-nivel[data-nivel="bajo"] {
+  background: var(--teal);
+}
+
+#riesgo-nivel[data-nivel="medio"] {
+  background: var(--amber);
+}
+
+#riesgo-nivel[data-nivel="alto"] {
+  background: var(--coral);
+  color: #fff;
+}
+
+.btn-risk {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1b211b;
+  font-weight: 800;
+}
+
+.btn-risk:hover {
+  background: #ffe09a;
+  border-color: #ffe09a;
+  color: #1b211b;
+}
+
+#resultado-operacion {
+  border-width: 1px;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-top: 1.25rem !important;
+  padding: 1rem 1.1rem;
+}
+
+.eyebrow {
+  color: var(--coral);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.market-search {
+  align-items: center;
+  display: flex;
+  position: relative;
+  width: min(100%, 280px);
+}
+
+.market-search > span {
+  color: var(--teal);
+  font-size: 1.35rem;
+  left: 0.8rem;
+  line-height: 1;
+  position: absolute;
+  z-index: 1;
+}
+
+.market-search .form-control {
+  padding-left: 2.25rem;
+}
+
+#tabla-mercado tbody tr {
+  cursor: pointer;
+}
+
+#tabla-mercado tbody tr:hover td:first-child {
   color: var(--teal);
 }
 
@@ -206,5 +377,14 @@ body {
 
   .navbar .btn {
     font-size: 0.78rem;
+  }
+
+  .simulator-heading {
+    display: block;
+  }
+
+  .risk-result-values {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 }

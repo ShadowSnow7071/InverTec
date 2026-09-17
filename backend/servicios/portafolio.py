@@ -90,6 +90,18 @@ class PortafolioServicio:
         ).all()
         return [self._movimiento_dict(movimiento) for movimiento in movimientos]
 
+    def obtener_movimiento(self, usuario_id: int, movimiento_id: int):
+        movimiento = db.session.scalar(
+            select(Movimiento)
+            .join(Movimiento.portafolio)
+            .options(joinedload(Movimiento.accion))
+            .where(Movimiento.id == movimiento_id)
+            .where(Portafolio.usuario_id == usuario_id)
+        )
+        if movimiento is None:
+            raise ErrorNegocio("Movimiento no encontrado", 404)
+        return self._movimiento_dict(movimiento)
+
     @staticmethod
     def _obtener_portafolio(usuario_id: int):
         return db.session.scalar(

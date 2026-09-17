@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración | InverTec{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="eyebrow mb-1">Cuenta</p>
+    <h1 class="h3 mb-0">Configuración</h1>
+  </div>
+</div>
+
+<section class="card mb-4" aria-labelledby="perfil-editar-titulo">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-1">Datos personales</p>
+        <h2 id="perfil-editar-titulo" class="h5 mb-0">Editar perfil</h2>
+      </div>
+    </div>
+    <form id="perfil-form" class="row g-3" novalidate>
+      <div class="col-md-6">
+        <label class="form-label" for="perfil-nombre">Nombre</label>
+        <input class="form-control" id="perfil-nombre" name="nombre" type="text" value="{{ usuario_actual.nombre }}" required maxlength="120" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="perfil-correo">Correo</label>
+        <input class="form-control" id="perfil-correo" name="correo" type="email" value="{{ usuario_actual.correo }}" required />
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="perfil-password">Nueva contraseña</label>
+        <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" />
+        <small class="text-muted">Mínimo 8 caracteres. Dejar vacío si no deseas cambiarla.</small>
+      </div>
+      <div class="col-12 d-flex justify-content-end gap-2">
+        <a class="btn btn-outline-secondary" href="{{ url_for('main.perfil') }}">Cancelar</a>
+        <button class="btn btn-primary" type="submit">Guardar cambios</button>
+      </div>
+    </form>
+    <div class="alert mt-3 d-none" id="perfil-resultado" role="status"></div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="info-cuenta-titulo">
+  <div class="card-body">
+    <div>
+      <p class="eyebrow mb-1">Tu cuenta</p>
+      <h2 id="info-cuenta-titulo" class="h5 mb-3">Información de registro</h2>
+    </div>
+    <div class="row g-3 text-muted">
+      <div class="col-md-6">
+        <p class="small mb-1">Rol</p>
+        <p class="mb-0"><strong>{{ usuario_actual.rol.value|capitalize }}</strong></p>
+      </div>
+      <div class="col-md-6">
+        <p class="small mb-1">Registrado desde</p>
+        <p class="mb-0"><strong>{{ usuario_actual.fecha_registro.strftime('%d/%m/%Y') }}</strong></p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const perfilForm = document.getElementById("perfil-form");
+  const perfilResultado = document.getElementById("perfil-resultado");
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function mostrarPerfilResultado(mensaje, tipo) {
+    perfilResultado.textContent = mensaje;
+    perfilResultado.className = `alert alert-${tipo} mt-3`;
+    perfilResultado.classList.remove("d-none");
+  }
+
+  if (perfilForm) {
+    perfilForm.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const payload = {
+        nombre: document.getElementById("perfil-nombre").value.trim(),
+        correo: document.getElementById("perfil-correo").value.trim(),
+      };
+      const password = document.getElementById("perfil-password").value.trim();
+      if (password) payload.password = password;
+
+      try {
+        const respuesta = await fetch("/api/usuarios/me", {
+          method: "PATCH",
+          headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+          body: JSON.stringify(payload),
+        });
+        const cuerpo = await respuesta.json();
+        if (!respuesta.ok) {
+          throw new Error(cuerpo.error || "No fue posible actualizar el perfil");
+        }
+
+        document.getElementById("perfil-nombre").value = cuerpo.nombre;
+        document.getElementById("perfil-correo").value = cuerpo.correo;
+        document.getElementById("perfil-password").value = "";
+        mostrarPerfilResultado("Perfil actualizado correctamente.", "success");
+      } catch (error) {
+        mostrarPerfilResultado(error.message, "danger");
+      }
+    });
+  }
+</script>
+{% endblock %}

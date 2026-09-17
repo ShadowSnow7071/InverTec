@@ -38,7 +38,8 @@ def rol_admin(fn):
     @wraps(fn)
     @jwt_required()
     def envoltura(*args, **kwargs):
-        if get_jwt().get("rol") != "administrador":
+        usuario = db.session.get(Usuario, int(get_jwt_identity()))
+        if usuario is None or usuario.rol.value != "administrador":
             return json_error("No autorizado", 403)
         return fn(*args, **kwargs)
 

@@ -20,6 +20,16 @@ def detalle_accion(ticker):
     accion = servicio.obtener_por_ticker(ticker)
     if accion is None:
         return jsonify({"error": "Acción no encontrada"}), 404
+
+    if request.path.endswith("/precio"):
+        return jsonify(
+            {
+                "ticker": accion["ticker"],
+                "nombre_empresa": accion["nombre_empresa"],
+                "precio_actual": accion["precio_actual"],
+            }
+        )
+
     return jsonify(accion)
 
 
