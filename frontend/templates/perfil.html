@@ -428,9 +428,7 @@
   // Cargar análisis del portafolio
   async function cargarAnalisis() {
     try {
-      const respuesta = await fetch("/api/portafolio/analisis", {
-        headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}
-      });
+      const respuesta = await fetch("/api/portafolio/analisis");
       if (!respuesta.ok) throw new Error("No se pudo cargar el análisis");
       
       const datos = await respuesta.json();
