@@ -201,6 +201,55 @@
 {% else %}
 <p class="text-muted">Aún no tienes movimientos registrados.</p>
 {% endif %}
+
+<section class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5 mb-4">Análisis del portafolio</h2>
+    <div class="row g-4">
+      <div class="col-md-6">
+        <h3 class="h6 mb-3">Distribución de activos</h3>
+        <canvas id="distribucion-activos" height="200"></canvas>
+      </div>
+      <div class="col-md-6">
+        <h3 class="h6 mb-3">Volatilidad por acción</h3>
+        <canvas id="volatilidad-activos" height="200"></canvas>
+      </div>
+    </div>
+    <div class="row g-4 mt-2">
+      <div class="col-md-6">
+        <h3 class="h6 mb-3">Resumen de actividad</h3>
+        <div class="row text-center">
+          <div class="col">
+            <p class="text-muted mb-1">Compras realizadas</p>
+            <p class="h5 mb-0" id="stat-compras">0</p>
+          </div>
+          <div class="col">
+            <p class="text-muted mb-1">Ventas realizadas</p>
+            <p class="h5 mb-0" id="stat-ventas">0</p>
+          </div>
+          <div class="col">
+            <p class="text-muted mb-1">Posiciones activas</p>
+            <p class="h5 mb-0" id="stat-posiciones">0</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <h3 class="h6 mb-3">Valores del portafolio</h3>
+        <div class="row text-center">
+          <div class="col">
+            <p class="text-muted mb-1">Saldo disponible</p>
+            <p class="h5 mb-0" id="stat-saldo">$0</p>
+          </div>
+          <div class="col">
+            <p class="text-muted mb-1">Valor en posiciones</p>
+            <p class="h5 mb-0" id="stat-valor-posiciones">$0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 {% endblock %}
 
 {% block scripts %}
@@ -375,5 +424,106 @@
       filtro.addEventListener("change", filtrarMovimientos);
     });
   }
+
+  // Cargar análisis del portafolio
+  async function cargarAnalisis() {
+    try {
+      const respuesta = await fetch("/api/portafolio/analisis", {
+        headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}
+      });
+      if (!respuesta.ok) throw new Error("No se pudo cargar el análisis");
+      
+      const datos = await respuesta.json();
+      
+      // Actualizar estadísticas
+      document.getElementById("stat-compras").textContent = datos.cantidad_compras;
+      document.getElementById("stat-ventas").textContent = datos.cantidad_ventas;
+      document.getElementById("stat-posiciones").textContent = datos.posiciones_count;
+      document.getElementById("stat-saldo").textContent = `$${datos.saldo_disponible.toFixed(2)}`;
+      document.getElementById("stat-valor-posiciones").textContent = `$${datos.valor_total_posiciones.toFixed(2)}`;
+      
+      // Gráfico de distribución de activos
+      if (Object.keys(datos.distribucion_activos).length > 0) {
+        const ctxDistribucion = document.getElementById("distribucion-activos").getContext("2d");
+        new Chart(ctxDistribucion, {
+          type: "doughnut",
+          data: {
+            labels: Object.keys(datos.distribucion_activos),
+            datasets: [{
+              data: Object.values(datos.distribucion_activos),
+              backgroundColor: [
+                "#0d6efd", "#6c757d", "#198754", "#ffc107", "#fd7e14",
+                "#dc3545", "#20c997", "#0dcaf0", "#6f42c1", "#e83e8c"
+              ],
+              borderColor: "#1a1d29",
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {position: "bottom"},
+              tooltip: {callbacks: {label: (ctx) => `${ctx.label}: $${ctx.parsed.toFixed(2)}`}}
+            }
+          }
+        });
+      } else {
+        document.getElementById("distribucion-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
+      }
+      
+      // Gráfico de volatilidad
+      if (Object.keys(datos.volatilidades).length > 0) {
+        const volatilidades = datos.volatilidades;
+        const coloresVolatilidad = Object.entries(volatilidades).map(([ticker, nivel]) => {
+          return nivel === "alto" ? "#dc3545" : nivel === "medio" ? "#ffc107" : "#198754";
+        });
+        
+        const ctxVolatilidad = document.getElementById("volatilidad-activos").getContext("2d");
+        new Chart(ctxVolatilidad, {
+          type: "bar",
+          data: {
+            labels: Object.keys(volatilidades),
+            datasets: [{
+              label: "Nivel de riesgo",
+              data: Object.entries(volatilidades).map(([, nivel]) => 
+                nivel === "alto" ? 3 : nivel === "medio" ? 2 : 1
+              ),
+              backgroundColor: coloresVolatilidad,
+              borderColor: "#1a1d29",
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {display: false},
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const niveles = ["bajo", "medio", "alto"];
+                    return `Riesgo: ${niveles[ctx.parsed.x - 1]}`;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {beginAtZero: true, max: 3, ticks: {display: false}, grid: {display: false}},
+              y: {grid: {display: false}}
+            }
+          }
+        });
+      } else {
+        document.getElementById("volatilidad-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
+      }
+    } catch (error) {
+      console.error("Error cargando análisis:", error);
+    }
+  }
+  
+  // Cargar análisis al iniciar
+  cargarAnalisis();
 </script>
 {% endblock %}

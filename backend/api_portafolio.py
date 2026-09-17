@@ -99,3 +99,57 @@ def vender():
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
     return jsonify(resultado)
+
+
+@bp.get("/analisis")
+@jwt_required()
+def analisis_portafolio():
+    usuario = usuario_actual()
+    if usuario is None:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    
+    portafolio = servicio.obtener(usuario.id)
+    if portafolio is None:
+        return jsonify({"error": "Portafolio no encontrado"}), 404
+    
+    from backend.servicios.acciones import AccionServicio
+    accion_servicio = AccionServicio()
+    movimientos = servicio.listar_movimientos(usuario.id)
+    
+    # Análisis de distribución de activos
+    distribucion = {}
+    volatilidades = {}
+    for posicion in portafolio.get("posiciones", []):
+        ticker = posicion["ticker"]
+        cantidad = posicion["cantidad"]
+        accion = accion_servicio.obtener_por_ticker(ticker)
+        precio = float(accion["precio_actual"])
+        valor_posicion = float(cantidad) * precio
+        distribucion[ticker] = valor_posicion
+        
+        # Calcular riesgo para obtener el nivel
+        volatilidad = float(accion["volatilidad"]) / 100
+        if volatilidad < 0.35:
+            volatilidades[ticker] = "bajo"
+        elif volatilidad < 0.70:
+            volatilidades[ticker] = "medio"
+        else:
+            volatilidades[ticker] = "alto"
+    
+    valor_total_posiciones = sum(distribucion.values())
+    
+    # Estadísticas de movimientos
+    compras = [m for m in movimientos if m["tipo"] == "compra"]
+    ventas = [m for m in movimientos if m["tipo"] == "venta"]
+    
+    return jsonify({
+        "saldo_disponible": float(portafolio["saldo_virtual"]),
+        "valor_total_posiciones": valor_total_posiciones,
+        "distribucion_activos": {
+            k: float(v) for k, v in distribucion.items()
+        } if distribucion else {},
+        "cantidad_compras": len(compras),
+        "cantidad_ventas": len(ventas),
+        "volatilidades": volatilidades,
+        "posiciones_count": len(portafolio.get("posiciones", [])),
+    })
