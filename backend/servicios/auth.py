@@ -1,14 +1,12 @@
 import re
 import time
 import hashlib
-import json
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from flask_jwt_extended import create_access_token, create_refresh_token
+import resend
 from sqlalchemy import delete, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -146,30 +144,11 @@ class AuthServicio:
                 "<p>El enlace expira en 30 minutos.</p>"
             ),
         }
-        solicitud = Request(
-            "https://api.resend.com/emails",
-            data=json.dumps(cuerpo).encode(),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
+        resend.api_key = api_key
         try:
-            with urlopen(solicitud, timeout=10) as respuesta:
-                if respuesta.status >= 400:
-                    raise ErrorNegocio("No fue posible enviar el correo", 503)
-        except HTTPError as exc:
-            detalle = exc.read().decode("utf-8", errors="replace")[:300]
-            logger.warning(
-                "Resend rechazó el correo: status=%s cf_ray=%s detalle=%s",
-                exc.code,
-                exc.headers.get("CF-RAY"),
-                detalle,
-            )
-            raise ErrorNegocio("No fue posible enviar el correo", 503) from exc
-        except (URLError, TimeoutError) as exc:
-            logger.warning("No se pudo conectar con Resend: %s", exc)
+            resend.Emails.send(cuerpo)
+        except Exception as exc:
+            logger.warning("Resend rechazó el correo: %s", exc)
             raise ErrorNegocio("No fue posible enviar el correo", 503) from exc
 
     @staticmethod
