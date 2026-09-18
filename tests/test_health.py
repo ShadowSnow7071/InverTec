@@ -21,3 +21,10 @@ def test_health_devuelve_ok(client):
     respuesta = client.get("/health")
     assert respuesta.status_code == 200
     assert respuesta.get_json() == {"status": "ok"}
+
+
+def test_favicon_devuelve_respuesta_vacia(client):
+    respuesta = client.get("/favicon.ico")
+
+    assert respuesta.status_code == 204
+    assert respuesta.data == b""

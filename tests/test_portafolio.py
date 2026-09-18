@@ -326,6 +326,18 @@ def test_api_usuarios_listado_requiere_rol_administrador(client, app):
     assert any(item["correo"] == "admin@example.com" for item in cuerpo)
 
 
+def test_detalle_movimiento_inexistente_devuelve_404(client):
+    token = registrar_y_obtener_token(client, "detalle_inexistente@example.com")
+
+    respuesta = client.get(
+        "/api/portafolio/movimientos/9999",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 404
+    assert respuesta.get_json() == {"error": "Movimiento no encontrado"}
+
+
 def test_portafolio_requiere_autenticacion(client):
     respuesta = client.get("/api/portafolio")
 

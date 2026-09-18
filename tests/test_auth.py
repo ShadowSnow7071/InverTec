@@ -149,6 +149,19 @@ def test_admin_html_muestra_usuarios_para_admin(client, app):
     assert "admin_ui@example.com" in contenido
 
 
+def test_usuario_inversionista_no_puede_listar_usuarios(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("inversionista@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/api/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.get_json() == {"error": "No autorizado"}
+
+
 def test_login_rechaza_credenciales_invalidas(client):
     respuesta = client.post(
         "/api/auth/login",

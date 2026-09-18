@@ -23,6 +23,11 @@ acciones = AccionServicio()
 portafolio = PortafolioServicio()
 
 
+@bp.get("/favicon.ico")
+def favicon():
+    return "", 204
+
+
 def _usuario_publico():
     try:
         verify_jwt_in_request(optional=True)
