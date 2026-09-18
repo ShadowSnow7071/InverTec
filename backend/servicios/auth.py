@@ -1,12 +1,22 @@
 import re
 import time
+import hashlib
+import json
+import logging
+import secrets
+from datetime import datetime, timedelta, timezone
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask_jwt_extended import create_access_token, create_refresh_token
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.conexion import db
-from backend.modelos import Portafolio, Usuario
+from backend.modelos import Portafolio, TokenRecuperacion, Usuario
+
+
+logger = logging.getLogger(__name__)
 
 
 class ErrorNegocio(Exception):
@@ -19,6 +29,10 @@ class AuthServicio:
     _max_intentos_login = 5
     _ventana_login_segundos = 900
     _intentos_login = {}
+
+    @staticmethod
+    def _ahora_utc():
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     def registrar(self, nombre, correo, password):
         nombre = (nombre or "").strip()
@@ -62,13 +76,109 @@ class AuthServicio:
         self._intentos_login.pop(correo, None)
         return self._respuesta_con_tokens(usuario)
 
+    def solicitar_recuperacion(self, correo, base_url, api_key, from_email):
+        if not api_key or not from_email:
+            raise ErrorNegocio("El servicio de correo no está configurado", 503)
+        correo = (correo or "").strip().lower()
+        usuario = db.session.scalar(select(Usuario).where(Usuario.correo == correo))
+        if usuario is None:
+            return
+
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expira_en = self._ahora_utc() + timedelta(minutes=30)
+        db.session.execute(
+            delete(TokenRecuperacion).where(
+                TokenRecuperacion.usuario_id == usuario.id,
+                TokenRecuperacion.usado_en.is_(None),
+            )
+        )
+        db.session.add(
+            TokenRecuperacion(
+                usuario_id=usuario.id,
+                token_hash=token_hash,
+                expira_en=expira_en,
+            )
+        )
+        try:
+            self._enviar_correo_recuperacion(
+                usuario.correo,
+                usuario.nombre,
+                f"{base_url}/restablecer-password?token={token}",
+                api_key,
+                from_email,
+            )
+        except ErrorNegocio:
+            db.session.rollback()
+            raise
+        db.session.commit()
+
+    def restablecer_password(self, token, password):
+        if not token or not self._validar_password(password):
+            raise ErrorNegocio("El token o la contraseña no son válidos")
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        recuperacion = db.session.scalar(
+            select(TokenRecuperacion).where(TokenRecuperacion.token_hash == token_hash)
+        )
+        if (
+            recuperacion is None
+            or recuperacion.usado_en is not None
+            or recuperacion.expira_en <= self._ahora_utc()
+        ):
+            raise ErrorNegocio("El token de recuperación no es válido o expiró")
+
+        recuperacion.usuario.password_hash = generate_password_hash(password)
+        recuperacion.usado_en = self._ahora_utc()
+        db.session.commit()
+
+    @staticmethod
+    def _enviar_correo_recuperacion(destinatario, nombre, enlace, api_key, from_email):
+        if not api_key or not from_email:
+            raise ErrorNegocio("El servicio de correo no está configurado", 503)
+        cuerpo = {
+            "from": from_email,
+            "to": [destinatario],
+            "subject": "Restablece tu contraseña de InverTec",
+            "html": (
+                f"<p>Hola, {nombre}.</p>"
+                f"<p>Usa este enlace para restablecer tu contraseña:</p>"
+                f"<p><a href=\"{enlace}\">Restablecer contraseña</a></p>"
+                "<p>El enlace expira en 30 minutos.</p>"
+            ),
+        }
+        solicitud = Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(cuerpo).encode(),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(solicitud, timeout=10) as respuesta:
+                if respuesta.status >= 400:
+                    raise ErrorNegocio("No fue posible enviar el correo", 503)
+        except HTTPError as exc:
+            detalle = exc.read().decode("utf-8", errors="replace")[:300]
+            logger.warning(
+                "Resend rechazó el correo: status=%s cf_ray=%s detalle=%s",
+                exc.code,
+                exc.headers.get("CF-RAY"),
+                detalle,
+            )
+            raise ErrorNegocio("No fue posible enviar el correo", 503) from exc
+        except (URLError, TimeoutError) as exc:
+            logger.warning("No se pudo conectar con Resend: %s", exc)
+            raise ErrorNegocio("No fue posible enviar el correo", 503) from exc
+
     @staticmethod
     def _validar_correo(correo):
         return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo))
 
     @staticmethod
     def _validar_password(password):
-        if not password or len(password) < 8 or len(password) > 128:
+        if not password or len(password) < 8 or len(password) > 32:
             return False
         return all(
             re.search(patron, password)
@@ -82,7 +192,7 @@ class AuthServicio:
             raise ErrorNegocio("El correo no es válido")
         if not self._validar_password(password):
             raise ErrorNegocio(
-                "La contraseña debe tener entre 8 y 128 caracteres, "
+                "La contraseña debe tener entre 8 y 32 caracteres, "
                 "mayúscula, minúscula, número y símbolo"
             )
 

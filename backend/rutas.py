@@ -83,6 +83,18 @@ def login_form():
     return _respuesta_publica("login.html", usuario, limpiar_cookies)
 
 
+@bp.get("/recuperar-password")
+def recuperar_password_form():
+    usuario, limpiar_cookies = _usuario_publico()
+    return _respuesta_publica("recuperar_password.html", usuario, limpiar_cookies)
+
+
+@bp.get("/restablecer-password")
+def restablecer_password_form():
+    usuario, limpiar_cookies = _usuario_publico()
+    return _respuesta_publica("restablecer_password.html", usuario, limpiar_cookies)
+
+
 @bp.post("/login")
 def login_post():
     try:

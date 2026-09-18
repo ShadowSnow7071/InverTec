@@ -74,7 +74,7 @@ def actualizar_perfil():
             raise ErrorNegocio("El correo no es válido")
         if password is not None and not servicio._validar_password(password):
             raise ErrorNegocio(
-                "La contraseña debe tener entre 8 y 128 caracteres, "
+                "La contraseña debe tener entre 8 y 32 caracteres, "
                 "mayúscula, minúscula, número y símbolo"
             )
 

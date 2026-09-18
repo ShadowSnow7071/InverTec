@@ -44,7 +44,7 @@ def test_registro_rechaza_password_debil(client, password):
     )
 
     assert respuesta.status_code == 400
-    assert "entre 8 y 128 caracteres" in respuesta.get_json()["error"]
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
 
 
 def test_login_y_perfil_protegido(client):
@@ -147,7 +147,7 @@ def test_patch_perfil_rechaza_password_debil(client):
     )
 
     assert respuesta.status_code == 400
-    assert "entre 8 y 128 caracteres" in respuesta.get_json()["error"]
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
 
 
 def test_admin_html_muestra_usuarios_para_admin(client, app):
@@ -214,6 +214,52 @@ def test_login_limita_intentos_fallidos(client):
     assert respuesta.get_json() == {
         "error": "Demasiados intentos fallidos. Intenta nuevamente más tarde"
     }
+
+
+def test_recuperacion_no_revela_si_correo_existe(client, app):
+    app.config["RESEND_API_KEY"] = "test-key"
+    app.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "no-existe@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "mensaje": "Si el correo existe, recibirás instrucciones para recuperar tu contraseña"
+    }
+
+
+def test_recuperacion_restablece_password_y_token_es_de_un_solo_uso(client, monkeypatch):
+    client.post("/api/auth/registro", json=datos_registro("recovery@example.com"))
+    token = {}
+
+    def capturar_correo(destinatario, nombre, enlace, api_key, from_email):
+        token["valor"] = enlace.split("token=", 1)[1]
+
+    monkeypatch.setattr(
+        "backend.servicios.auth.AuthServicio._enviar_correo_recuperacion",
+        staticmethod(capturar_correo),
+    )
+    client.application.config["RESEND_API_KEY"] = "test-key"
+    client.application.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "recovery@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    cambio = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva123!"},
+    )
+    repetido = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva456!"},
+    )
+
+    assert cambio.status_code == 200
+    assert repetido.status_code == 400
 
 
 @pytest.mark.parametrize("endpoint", ["/api/auth/registro", "/api/auth/login"])
