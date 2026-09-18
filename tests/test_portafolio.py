@@ -227,6 +227,54 @@ def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     assert cuerpo["volatilidad_porcentaje"] == "20.00"
     assert cuerpo["riesgo_nivel"] in {"bajo", "medio", "alto"}
 
+def test_analisis_portafolio_devuelve_estadisticas(client, app, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    token = registrar_y_obtener_token(client, "analisis@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        accion_aapl = Accion(ticker="AAPL", nombre_empresa="Apple Inc.")
+        accion_googl = Accion(ticker="GOOGL", nombre_empresa="Alphabet")
+        db.session.add_all([accion_aapl, accion_googl])
+        db.session.flush()
+        db.session.add_all(
+            [
+                Movimiento(
+                    portafolio_id=usuario.portafolio.id,
+                    accion_id=accion_aapl.id,
+                    tipo=TipoMovimiento.compra,
+                    cantidad=Decimal("2.0000"),
+                    precio_unitario=Decimal("214.20"),
+                ),
+                Movimiento(
+                    portafolio_id=usuario.portafolio.id,
+                    accion_id=accion_googl.id,
+                    tipo=TipoMovimiento.compra,
+                    cantidad=Decimal("1.0000"),
+                    precio_unitario=Decimal("170.00"),
+                ),
+            ]
+        )
+        db.session.commit()
+
+    respuesta = client.get(
+        "/api/portafolio/analisis",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert "saldo_disponible" in cuerpo
+    assert "valor_total_posiciones" in cuerpo
+    assert "distribucion_activos" in cuerpo
+    assert "cantidad_compras" in cuerpo
+    assert "cantidad_ventas" in cuerpo
+    assert "volatilidades" in cuerpo
+    assert "posiciones_count" in cuerpo
+    assert cuerpo["cantidad_compras"] == 2
+    assert cuerpo["cantidad_ventas"] == 0
+    assert cuerpo["posiciones_count"] == 2
+    assert "AAPL" in cuerpo["distribucion_activos"]
+    assert "GOOGL" in cuerpo["distribucion_activos"]
 
 def test_api_detalle_movimiento_devuelve_un_movimiento(client, app):
     token = registrar_y_obtener_token(client, "detalle_mov@example.com")
