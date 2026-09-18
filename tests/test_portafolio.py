@@ -10,7 +10,7 @@ def registrar_y_obtener_token(client, correo):
         json={
             "nombre": correo.split("@")[0],
             "correo": correo,
-            "password": "secreto12",
+            "password": "Secreto12!",
         },
     )
     return respuesta.get_json()["access_token"]

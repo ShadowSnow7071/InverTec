@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required, create_access_token
+from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
 
 from backend.seguridad import json_error
 from backend.servicios.auth import AuthServicio, ErrorNegocio
@@ -47,4 +47,9 @@ def login():
 @jwt_required(refresh=True)
 def refresh():
     identidad = get_jwt_identity()
-    return jsonify({"access_token": create_access_token(identity=identidad)})
+    return jsonify({
+        "access_token": create_access_token(
+            identity=identidad,
+            additional_claims={"rol": get_jwt().get("rol")},
+        )
+    })

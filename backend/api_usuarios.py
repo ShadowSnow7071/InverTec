@@ -72,8 +72,11 @@ def actualizar_perfil():
             raise ErrorNegocio("El nombre debe tener entre 2 y 120 caracteres")
         if not correo or not servicio._validar_correo(correo):
             raise ErrorNegocio("El correo no es válido")
-        if password is not None and len(password) < 8:
-            raise ErrorNegocio("La contraseña debe tener al menos 8 caracteres")
+        if password is not None and not servicio._validar_password(password):
+            raise ErrorNegocio(
+                "La contraseña debe tener entre 8 y 128 caracteres, "
+                "mayúscula, minúscula, número y símbolo"
+            )
 
         existente = db.session.scalar(select(Usuario).where(Usuario.correo == correo))
         if existente is not None and existente.id != usuario.id:

@@ -29,7 +29,7 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="perfil-password">Nueva contraseña</label>
-        <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" />
+        <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" maxlength="128" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}" />
         <small class="text-muted">Mínimo 8 caracteres. Dejar vacío si no deseas cambiarla.</small>
       </div>
       <div class="col-12 d-flex justify-content-end gap-2">
