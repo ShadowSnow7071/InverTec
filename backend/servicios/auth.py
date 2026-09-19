@@ -11,7 +11,8 @@ from sqlalchemy import delete, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.conexion import db
-from backend.modelos import Portafolio, TokenRecuperacion, Usuario
+from backend.modelos import TokenRecuperacion, Usuario
+from backend.repositorios.portafolio import PortafolioRepo
 
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,9 @@ class AuthServicio:
             correo=correo,
             password_hash=generate_password_hash(password),
         )
-        usuario.portafolio = Portafolio()
         db.session.add(usuario)
+        db.session.flush()
+        PortafolioRepo().agregar_para_usuario(usuario.id)
         db.session.commit()
         return self._respuesta_con_tokens(usuario)
 
