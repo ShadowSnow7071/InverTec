@@ -29,8 +29,11 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="perfil-password">Nueva contraseña</label>
-        <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" />
-        <small class="text-muted">Mínimo 8 caracteres. Dejar vacío si no deseas cambiarla.</small>
+        <div class="input-group">
+          <input class="form-control" id="perfil-password" name="password" type="password" placeholder="Dejar vacío para conservarla" minlength="8" maxlength="32" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,32}" aria-describedby="perfil-password-ayuda" />
+          <button class="btn btn-outline-secondary" id="mostrar-perfil-password" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
+        </div>
+        <small class="text-muted" id="perfil-password-ayuda">Entre 8 y 32 caracteres, con mayúscula, minúscula, número y símbolo. Déjala vacía si no deseas cambiarla.</small>
       </div>
       <div class="col-12 d-flex justify-content-end gap-2">
         <a class="btn btn-outline-secondary" href="{{ url_for('main.perfil') }}">Cancelar</a>
@@ -65,6 +68,16 @@
 <script>
   const perfilForm = document.getElementById("perfil-form");
   const perfilResultado = document.getElementById("perfil-resultado");
+  const perfilPassword = document.getElementById("perfil-password");
+  const mostrarPerfilPassword = document.getElementById("mostrar-perfil-password");
+
+  mostrarPerfilPassword.addEventListener("click", () => {
+    const visible = perfilPassword.type === "text";
+    perfilPassword.type = visible ? "password" : "text";
+    mostrarPerfilPassword.textContent = visible ? "Mostrar" : "Ocultar";
+    mostrarPerfilPassword.setAttribute("aria-label", visible ? "Mostrar contraseña" : "Ocultar contraseña");
+    mostrarPerfilPassword.setAttribute("aria-pressed", String(!visible));
+  });
 
   function tokenCsrf() {
     const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));

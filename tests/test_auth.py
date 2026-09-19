@@ -8,7 +8,7 @@ def datos_registro(correo="ana@example.com"):
     return {
         "nombre": "Ana",
         "correo": correo,
-        "password": "secreto12",
+        "password": "Secreto12!",
     }
 
 
@@ -25,7 +25,7 @@ def test_registro_crea_usuario_portafolio_y_tokens(client, app):
         usuario = db.session.query(Usuario).one()
         assert usuario.portafolio is not None
         assert usuario.portafolio.saldo_virtual == 10000
-        assert usuario.password_hash != "secreto12"
+        assert usuario.password_hash != "Secreto12!"
 
 
 def test_registro_rechaza_correo_duplicado(client):
@@ -36,11 +36,22 @@ def test_registro_rechaza_correo_duplicado(client):
     assert respuesta.get_json() == {"error": "El correo ya está registrado"}
 
 
+@pytest.mark.parametrize("password", ["secreto12", "SECRETO12!", "Secreto!!", "Secreto12!" * 13])
+def test_registro_rechaza_password_debil(client, password):
+    respuesta = client.post(
+        "/api/auth/registro",
+        json={**datos_registro("password@example.com"), "password": password},
+    )
+
+    assert respuesta.status_code == 400
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
+
+
 def test_login_y_perfil_protegido(client):
     client.post("/api/auth/registro", json=datos_registro())
     login = client.post(
         "/api/auth/login",
-        json={"correo": "ANA@example.com", "password": "secreto12"},
+        json={"correo": "ANA@example.com", "password": "Secreto12!"},
     )
     token = login.get_json()["access_token"]
 
@@ -65,7 +76,7 @@ def test_configuracion_html_muestra_formulario_de_edicion(client):
     client.post("/api/auth/registro", json=datos_registro("config_html@example.com"))
     login = client.post(
         "/api/auth/login",
-        json={"correo": "config_html@example.com", "password": "secreto12"},
+        json={"correo": "config_html@example.com", "password": "Secreto12!"},
     )
     token = login.get_json()["access_token"]
 
@@ -87,7 +98,7 @@ def test_perfil_html_muestra_saldo_y_mercado(client):
     client.post("/api/auth/registro", json=datos_registro("perfil_market@example.com"))
     login = client.post(
         "/api/auth/login",
-        json={"correo": "perfil_market@example.com", "password": "secreto12"},
+        json={"correo": "perfil_market@example.com", "password": "Secreto12!"},
     )
     token = login.get_json()["access_token"]
 
@@ -114,7 +125,7 @@ def test_patch_perfil_actualiza_datos_del_usuario(client):
         json={
             "nombre": "Ana Updated",
             "correo": "nuevo@example.com",
-            "password": "nueva123456",
+            "password": "Nueva123!",
         },
     )
 
@@ -123,6 +134,20 @@ def test_patch_perfil_actualiza_datos_del_usuario(client):
     assert cuerpo["nombre"] == "Ana Updated"
     assert cuerpo["correo"] == "nuevo@example.com"
     assert cuerpo["saldo_virtual"] == "10000.00"
+
+
+def test_patch_perfil_rechaza_password_debil(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("password_update@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.patch(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"password": "solamente8"},
+    )
+
+    assert respuesta.status_code == 400
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
 
 
 def test_admin_html_muestra_usuarios_para_admin(client, app):
@@ -134,7 +159,7 @@ def test_admin_html_muestra_usuarios_para_admin(client, app):
 
     login = client.post(
         "/api/auth/login",
-        json={"correo": "admin_ui@example.com", "password": "secreto12"},
+        json={"correo": "admin_ui@example.com", "password": "Secreto12!"},
     )
     token = login.get_json()["access_token"]
 
@@ -149,14 +174,92 @@ def test_admin_html_muestra_usuarios_para_admin(client, app):
     assert "admin_ui@example.com" in contenido
 
 
+def test_usuario_inversionista_no_puede_listar_usuarios(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("inversionista@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/api/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.get_json() == {"error": "No autorizado"}
+
+
 def test_login_rechaza_credenciales_invalidas(client):
     respuesta = client.post(
         "/api/auth/login",
-        json={"correo": "nadie@example.com", "password": "secreto12"},
+        json={"correo": "nadie@example.com", "password": "Secreto12!"},
     )
 
     assert respuesta.status_code == 401
     assert respuesta.get_json() == {"error": "Correo o contraseña incorrectos"}
+
+
+def test_login_limita_intentos_fallidos(client):
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": "fuerza_bruta@example.com", "password": "Incorrecta1!"},
+        )
+        assert respuesta.status_code == 401
+
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "fuerza_bruta@example.com", "password": "Incorrecta1!"},
+    )
+
+    assert respuesta.status_code == 429
+    assert respuesta.get_json() == {
+        "error": "Demasiados intentos fallidos. Intenta nuevamente más tarde"
+    }
+
+
+def test_recuperacion_no_revela_si_correo_existe(client, app):
+    app.config["RESEND_API_KEY"] = "test-key"
+    app.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "no-existe@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "mensaje": "Si el correo existe, recibirás instrucciones para recuperar tu contraseña"
+    }
+
+
+def test_recuperacion_restablece_password_y_token_es_de_un_solo_uso(client, monkeypatch):
+    client.post("/api/auth/registro", json=datos_registro("recovery@example.com"))
+    token = {}
+
+    def capturar_correo(destinatario, nombre, enlace, api_key, from_email):
+        token["valor"] = enlace.split("token=", 1)[1]
+
+    monkeypatch.setattr(
+        "backend.servicios.auth.AuthServicio._enviar_correo_recuperacion",
+        staticmethod(capturar_correo),
+    )
+    client.application.config["RESEND_API_KEY"] = "test-key"
+    client.application.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "recovery@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    cambio = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva123!"},
+    )
+    repetido = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva456!"},
+    )
+
+    assert cambio.status_code == 200
+    assert repetido.status_code == 400
 
 
 @pytest.mark.parametrize("endpoint", ["/api/auth/registro", "/api/auth/login"])
@@ -180,13 +283,36 @@ def test_refresh_emite_nuevo_access_token(client):
     assert "access_token" in respuesta.get_json()
 
 
+def test_refresh_preserva_claim_de_rol(client, app):
+    client.post("/api/auth/registro", json=datos_registro("refresh_admin@example.com"))
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "refresh_admin@example.com", "password": "Secreto12!"},
+    )
+    refresh_token = login.get_json()["refresh_token"]
+    respuesta = client.post(
+        "/api/auth/refresh",
+        headers={"Authorization": f"Bearer {refresh_token}"},
+    )
+
+    from flask_jwt_extended import decode_token
+
+    assert respuesta.status_code == 200
+    assert decode_token(respuesta.get_json()["access_token"])["rol"] == "administrador"
+
+
 def test_flujo_html_registro_perfil_y_logout(client):
     registro = client.post(
         "/registro",
         data={
             "nombre": "Luis",
             "correo": "luis@example.com",
-            "password": "secreto12",
+            "password": "Secreto12!",
         },
         follow_redirects=True,
     )

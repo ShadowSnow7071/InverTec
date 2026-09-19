@@ -66,7 +66,9 @@ Para conservar los datos y usar MySQL:
 
 1. Copia `.env.example` como `.env` en la raíz del repositorio.
 2. Completa `DATABASE_URL`, `SECRET_KEY` y `JWT_SECRET_KEY`.
-3. Ejecuta las migraciones y arranca Flask:
+3. Para habilitar recuperación de contraseña, completa `RESEND_API_KEY`,
+   `RESEND_FROM_EMAIL` y `APP_BASE_URL` con un dominio verificado en Resend.
+4. Ejecuta las migraciones y arranca Flask:
 
 ```powershell
 $env:RUN_CONFIG = "development"

@@ -13,4 +13,9 @@ def usuario_publico(usuario: Usuario) -> dict:
         "correo": usuario.correo,
         "rol": usuario.rol.value,
         "fecha_registro": fecha.isoformat() if isinstance(fecha, datetime) else None,
+        "saldo_virtual": (
+            str(usuario.portafolio.saldo_virtual)
+            if usuario.portafolio is not None
+            else None
+        ),
     }

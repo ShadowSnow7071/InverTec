@@ -8,19 +8,22 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
     verify_jwt_in_request,
 )
-from sqlalchemy import select
-
-from backend.conexion import db
-from backend.modelos import Usuario
 from backend.seguridad import rol_admin
 from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import AuthServicio, ErrorNegocio
 from backend.servicios.portafolio import PortafolioServicio
+from backend.servicios.usuario import UsuarioServicio
 
 bp = Blueprint("main", __name__)
 auth = AuthServicio()
 acciones = AccionServicio()
 portafolio = PortafolioServicio()
+usuarios = UsuarioServicio()
+
+
+@bp.get("/favicon.ico")
+def favicon():
+    return "", 204
 
 
 def _usuario_publico():
@@ -78,6 +81,18 @@ def login_form():
     return _respuesta_publica("login.html", usuario, limpiar_cookies)
 
 
+@bp.get("/recuperar-password")
+def recuperar_password_form():
+    usuario, limpiar_cookies = _usuario_publico()
+    return _respuesta_publica("recuperar_password.html", usuario, limpiar_cookies)
+
+
+@bp.get("/restablecer-password")
+def restablecer_password_form():
+    usuario, limpiar_cookies = _usuario_publico()
+    return _respuesta_publica("restablecer_password.html", usuario, limpiar_cookies)
+
+
 @bp.post("/login")
 def login_post():
     try:
@@ -121,22 +136,10 @@ def configuracion():
 @bp.get("/admin/usuarios")
 @rol_admin
 def admin_usuarios():
-    usuarios = db.session.scalars(select(Usuario).order_by(Usuario.id)).all()
     return render_template(
         "admin_usuarios.html",
         usuario_actual=current_user,
-        usuarios=[
-            {
-                "id": usuario.id,
-                "nombre": usuario.nombre,
-                "correo": usuario.correo,
-                "rol": usuario.rol.value,
-                "saldo_virtual": str(usuario.portafolio.saldo_virtual)
-                if usuario.portafolio is not None
-                else "0.00",
-            }
-            for usuario in usuarios
-        ],
+        usuarios=usuarios.listar(),
     )
 
 

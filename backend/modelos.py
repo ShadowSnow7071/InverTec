@@ -42,6 +42,26 @@ class Usuario(db.Model):
     portafolio: Mapped["Portafolio | None"] = relationship(
         back_populates="usuario", uselist=False
     )
+    tokens_recuperacion: Mapped[list["TokenRecuperacion"]] = relationship(
+        back_populates="usuario", cascade="all, delete-orphan"
+    )
+
+
+class TokenRecuperacion(db.Model):
+    __tablename__ = "token_recuperacion"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuario.id"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expira_en: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    usado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    usuario: Mapped[Usuario] = relationship(back_populates="tokens_recuperacion")
 
 
 class Portafolio(db.Model):
