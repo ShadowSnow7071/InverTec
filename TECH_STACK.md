@@ -27,7 +27,7 @@ Referencia técnica del stack usado en el proyecto, con versión y justificació
 |---|---|---|
 | Jinja2 | incluido en Flask | Plantillas del sitio, organizadas en partials reutilizables. |
 | Bootstrap | 5.x (CDN) | Biblioteca de componentes UI, resuelve responsividad sin CSS desde cero. |
-| Vue | 3.x (CDN, sin build) | Solo en la vista del simulador de riesgo/recompensa, donde sí aporta reactividad. |
+| JavaScript vanilla | ES6+ | Se evaluó Vue 3 por CDN para el simulador de riesgo/recompensa, pero no aportaba beneficio real a ese tamaño de componente, mismo resultado con menos dependencias y sin el riesgo de una integración por CDN sin build. |
 
 ## Pruebas y calidad
 
