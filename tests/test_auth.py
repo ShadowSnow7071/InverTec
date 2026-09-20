@@ -330,4 +330,28 @@ def test_flujo_html_registro_perfil_y_logout(client):
     logout = client.post("/logout", follow_redirects=True)
 
     assert logout.status_code == 200
-    assert b"Comenzar" in logout.data
+    assert b"Inicia sesi\xc3\xb3n" in logout.data
+
+
+def test_index_redirige_a_perfil_si_hay_sesion(client):
+    client.post(
+        "/registro",
+        data={
+            "nombre": "Ana",
+            "correo": "ana@example.com",
+            "password": "Secreto12!",
+        },
+        follow_redirects=True,
+    )
+
+    respuesta = client.get("/", follow_redirects=False)
+
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/perfil"
+
+
+def test_index_muestra_login_sin_sesion(client):
+    respuesta = client.get("/")
+
+    assert respuesta.status_code == 200
+    assert b"Inicia sesi\xc3\xb3n" in respuesta.data
