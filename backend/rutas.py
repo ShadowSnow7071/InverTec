@@ -44,7 +44,9 @@ def _respuesta_publica(templateo, usuario, limpiar_cookies, **contexto):
 @bp.get("/")
 def index():
     usuario, limpiar_cookies = _usuario_publico()
-    return _respuesta_publica("index.html", usuario, limpiar_cookies)
+    if usuario:
+        return redirect(url_for("main.perfil"))
+    return _respuesta_publica("login.html", usuario, limpiar_cookies)
 
 
 @bp.get("/registro")
