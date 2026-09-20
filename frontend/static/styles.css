@@ -381,14 +381,16 @@ body {
 }
 
 .auth-form-side {
+  align-items: center;
   display: flex;
   flex-direction: column;
-  padding: 2.5rem 3rem;
+  padding: clamp(2rem, 6vw, 4rem);
   width: 50%;
 }
 
 .auth-logo {
   align-items: center;
+  align-self: flex-start;
   color: var(--ink);
   display: inline-flex;
   font-weight: 700;
@@ -415,6 +417,7 @@ body {
   flex: 1;
   flex-direction: column;
   justify-content: center;
+  margin: 0 auto;
   max-width: 420px;
   width: 100%;
 }
