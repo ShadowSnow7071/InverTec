@@ -1,30 +1,47 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
 {% block title %}Iniciar sesión | InverTec{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
-    <div class="auth-panel p-4 p-md-5">
-    <h1 class="h3 mb-4">Iniciar sesión</h1>
-    {% with mensajes = get_flashed_messages(with_categories=true) %}
-      {% for categoria, texto in mensajes %}
-        <div class="alert alert-{{ categoria }}" role="alert">{{ texto }}</div>
-      {% endfor %}
-    {% endwith %}
-    <form method="post" action="{{ url_for('main.login_post') }}">
-      <div class="mb-3">
-        <label class="form-label" for="correo">Correo</label>
-        <input class="form-control" id="correo" name="correo" type="email" required autofocus />
-      </div>
-      <div class="mb-3">
-        <label class="form-label" for="password">Contraseña</label>
-        <input class="form-control" id="password" name="password" type="password" required />
-      </div>
-      <p><a href="{{ url_for('main.recuperar_password_form') }}">¿Olvidaste tu contraseña?</a></p>
-      <button class="btn btn-primary" type="submit">Entrar</button>
-    </form>
-    </div>
+<h1 class="h3">Inicia sesión</h1>
+<p class="text-muted mb-4">¿No tienes cuenta? <a href="{{ url_for('main.registro_form') }}">Regístrate</a></p>
+
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+  {% for categoria, texto in mensajes %}
+    <div class="alert alert-{{ categoria }}" role="alert">{{ texto }}</div>
+  {% endfor %}
+{% endwith %}
+
+<form method="post" action="{{ url_for('main.login_post') }}" class="w-100">
+  <div class="auth-field">
+    <label for="correo">Correo electrónico</label>
+    <input class="form-control" id="correo" name="correo" type="email" placeholder="carlos.mendoza@uni.edu.mx" required autofocus />
   </div>
-</div>
+  <div class="auth-field">
+    <label for="password">Contraseña</label>
+    <div class="auth-input-wrap">
+      <input class="form-control" id="password" name="password" type="password" placeholder="Tu contraseña" required />
+      <button class="auth-toggle-password" type="button" data-toggle-target="password" aria-label="Mostrar contraseña">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </div>
+    <p class="text-end mt-2 mb-0"><a href="{{ url_for('main.recuperar_password_form') }}">¿Olvidaste tu contraseña?</a></p>
+  </div>
+  <button class="btn btn-primary w-100" type="submit">Iniciar sesión</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll(".auth-toggle-password").forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      var input = document.getElementById(boton.dataset.toggleTarget);
+      if (!input) return;
+      input.type = input.type === "password" ? "text" : "password";
+    });
+  });
+</script>
 {% endblock %}

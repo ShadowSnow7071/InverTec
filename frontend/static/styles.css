@@ -370,6 +370,143 @@ body {
   --bs-alert-border-color: #85413a;
 }
 
+.auth-body {
+  background: var(--paper);
+  min-height: 100vh;
+}
+
+.auth-split {
+  display: flex;
+  min-height: 100vh;
+}
+
+.auth-form-side {
+  display: flex;
+  flex-direction: column;
+  padding: 2.5rem 3rem;
+  width: 50%;
+}
+
+.auth-logo {
+  align-items: center;
+  color: var(--ink);
+  display: inline-flex;
+  font-weight: 700;
+  gap: 0.6rem;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.auth-logo-badge {
+  align-items: center;
+  background: var(--teal);
+  border-radius: 8px;
+  color: var(--teal-dark);
+  display: inline-flex;
+  font-weight: 800;
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.auth-form-wrap {
+  align-items: flex-start;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 420px;
+  width: 100%;
+}
+
+.auth-form-wrap h1 {
+  margin-bottom: 0.25rem;
+}
+
+.auth-hero-side {
+  align-items: flex-start;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem;
+  position: relative;
+  width: 50%;
+}
+
+.auth-hero-title {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.auth-hero-dot {
+  color: var(--coral);
+}
+
+.auth-hero-copy {
+  color: var(--muted);
+  margin-top: 1rem;
+  max-width: 360px;
+}
+
+.auth-hero-footer {
+  bottom: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  position: absolute;
+}
+
+.auth-field {
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.auth-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.auth-input-wrap {
+  position: relative;
+}
+
+.auth-input-wrap .form-control {
+  padding-right: 2.75rem;
+}
+
+.auth-toggle-password {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.auth-toggle-password:hover {
+  color: var(--teal);
+}
+
+@media (max-width: 768px) {
+  .auth-split {
+    flex-direction: column;
+  }
+
+  .auth-form-side,
+  .auth-hero-side {
+    width: 100%;
+  }
+
+  .auth-hero-side {
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+}
+
 @media (max-width: 576px) {
   main.container {
     padding-top: 1.5rem !important;
