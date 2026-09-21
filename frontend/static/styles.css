@@ -528,3 +528,72 @@ body {
     flex-wrap: wrap;
   }
 }
+.tour-overlay {
+  align-items: center;
+  backdrop-filter: blur(6px);
+  background: rgba(6, 10, 13, 0.72);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 1.5rem;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1050;
+}
+
+.tour-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  max-width: 460px;
+  padding: 2rem;
+  width: 100%;
+}
+
+.tour-progress {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.tour-progress span {
+  background: var(--line);
+  border-radius: 999px;
+  flex: 1;
+  height: 4px;
+}
+
+.tour-progress span.activo {
+  background: var(--teal);
+}
+
+.tour-icon {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 12px;
+  display: inline-flex;
+  font-size: 1.5rem;
+  height: 3rem;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  width: 3rem;
+}
+
+.tour-card h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.tour-card p {
+  color: var(--muted);
+  margin-bottom: 1.75rem;
+}
+
+.tour-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}

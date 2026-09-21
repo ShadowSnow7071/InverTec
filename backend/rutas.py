@@ -69,7 +69,7 @@ def registro_post():
         flash(exc.mensaje, "danger")
         return render_template("registro.html"), exc.codigo
 
-    respuesta = redirect(url_for("main.perfil"))
+    respuesta = redirect(url_for("main.perfil", bienvenida=1))
     set_access_cookies(respuesta, resultado["access_token"])
     set_refresh_cookies(respuesta, resultado["refresh_token"])
     return respuesta

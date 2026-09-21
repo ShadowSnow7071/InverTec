@@ -3,6 +3,19 @@
 {% block title %}Mi portafolio | InverTec{% endblock %}
 
 {% block content %}
+<div class="tour-overlay d-none" id="tour-bienvenida" role="dialog" aria-modal="true" aria-labelledby="tour-titulo">
+  <div class="tour-card">
+    <div class="tour-progress" id="tour-progress"></div>
+    <div class="tour-icon" id="tour-icono" aria-hidden="true"></div>
+    <h2 id="tour-titulo"></h2>
+    <p id="tour-descripcion"></p>
+    <div class="tour-actions">
+      <button class="btn btn-outline-secondary" id="tour-saltar" type="button">Saltar tour</button>
+      <button class="btn btn-primary" id="tour-siguiente" type="button">Siguiente</button>
+    </div>
+  </div>
+</div>
+
 <div class="portfolio-heading d-flex justify-content-between align-items-center mb-4">
   <div>
     <h1 class="h3 mb-1">Hola, {{ usuario_actual.nombre }}</h1>
@@ -428,6 +441,72 @@
       filtro.addEventListener("change", filtrarMovimientos);
     });
   }
+
+  // Tour de bienvenida, solo aparece justo después de registrarse
+  (function () {
+    const parametros = new URLSearchParams(window.location.search);
+    if (parametros.get("bienvenida") !== "1") return;
+
+    const overlay = document.getElementById("tour-bienvenida");
+    const progreso = document.getElementById("tour-progress");
+    const icono = document.getElementById("tour-icono");
+    const titulo = document.getElementById("tour-titulo");
+    const descripcion = document.getElementById("tour-descripcion");
+    const botonSiguiente = document.getElementById("tour-siguiente");
+    const botonSaltar = document.getElementById("tour-saltar");
+
+    const slides = [
+      {
+        icono: "📊",
+        titulo: "¡Bienvenida a InverTec!",
+        descripcion: "Este es tu espacio para aprender a invertir sin arriesgar dinero real. Tienes $50,000 USD de práctica para explorar el mercado.",
+      },
+      {
+        icono: "🔍",
+        titulo: "Explora el mercado",
+        descripcion: "En la sección Mercado puedes buscar acciones reales (Apple, Tesla, etc.), ver su precio de referencia y nivel de riesgo explicado en lenguaje simple.",
+      },
+      {
+        icono: "⚡",
+        titulo: "Simula en 3 clics",
+        descripcion: 'Desde Inicio toca "Simular operación". Elige una acción, ajusta la cantidad, consulta el riesgo y confirma. ¡Así de fácil! Los resultados se registran en tu Historial.',
+      },
+    ];
+
+    progreso.innerHTML = slides.map(() => "<span></span>").join("");
+    const segmentos = progreso.querySelectorAll("span");
+    let pasoActual = 0;
+
+    function render() {
+      const slide = slides[pasoActual];
+      icono.textContent = slide.icono;
+      titulo.textContent = slide.titulo;
+      descripcion.textContent = slide.descripcion;
+      segmentos.forEach((segmento, indice) => segmento.classList.toggle("activo", indice <= pasoActual));
+      botonSiguiente.textContent = pasoActual === slides.length - 1 ? "Comenzar" : "Siguiente";
+    }
+
+    function cerrarTour() {
+      overlay.classList.add("d-none");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("bienvenida");
+      window.history.replaceState({}, "", url);
+    }
+
+    botonSiguiente.addEventListener("click", () => {
+      if (pasoActual === slides.length - 1) {
+        cerrarTour();
+        return;
+      }
+      pasoActual += 1;
+      render();
+    });
+
+    botonSaltar.addEventListener("click", cerrarTour);
+
+    overlay.classList.remove("d-none");
+    render();
+  })();
 
   // Cargar análisis del portafolio
   let chartDistribucion = null;
