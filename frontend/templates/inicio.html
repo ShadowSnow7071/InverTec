@@ -1,0 +1,167 @@
+{% extends "app_base.html" %}
+
+{% block title %}Inicio | InverTec{% endblock %}
+{% block breadcrumb %}Inicio{% endblock %}
+
+{% block content %}
+<div class="tour-overlay d-none" id="tour-bienvenida" role="dialog" aria-modal="true" aria-labelledby="tour-titulo">
+  <div class="tour-card">
+    <div class="tour-progress" id="tour-progress"></div>
+    <div class="tour-icon" id="tour-icono" aria-hidden="true"></div>
+    <h2 id="tour-titulo"></h2>
+    <p id="tour-descripcion"></p>
+    <div class="tour-actions">
+      <button class="btn btn-outline-secondary" id="tour-saltar" type="button">Saltar tour</button>
+      <button class="btn btn-primary" id="tour-siguiente" type="button">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<div class="portfolio-heading d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">Hola, {{ usuario_actual.nombre }}</h1>
+    <p class="text-muted mb-0">{{ usuario_actual.correo }}</p>
+  </div>
+  <span class="badge text-bg-secondary">{{ usuario_actual.rol.value }}</span>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card balance-card h-100">
+      <div class="card-body">
+        <p class="text-uppercase small fw-semibold text-muted mb-1">Saldo disponible</p>
+        <p class="display-6 mb-1">${{ datos_portafolio.saldo_virtual }}</p>
+        <p class="text-muted small mb-3">Capital de práctica</p>
+        <a class="btn btn-primary" href="{{ url_for('main.simular') }}">+ Simular operación</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <p class="text-uppercase small fw-semibold text-muted mb-1">Valor en posiciones</p>
+        <p class="h3 mb-1">USD {{ valor_posiciones }}</p>
+        <p class="text-muted small mb-0">{{ datos_portafolio.posiciones|length }} posiciones activas</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <p class="text-uppercase small fw-semibold text-muted mb-3">Actividad</p>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Compras</span>
+          <strong>{{ total_compras }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Ventas</span>
+          <strong class="text-danger">{{ total_ventas }}</strong>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Posiciones</span>
+          <strong>{{ datos_portafolio.posiciones|length }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h5 mb-0">Mis posiciones</h2>
+  <a class="text-decoration-none" href="{{ url_for('main.analisis') }}">Ver todas →</a>
+</div>
+{% if datos_portafolio.posiciones %}
+<div class="table-responsive mb-4">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Empresa</th>
+        <th class="text-end">Cantidad</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for posicion in datos_portafolio.posiciones %}
+      <tr>
+        <td><span class="badge text-bg-secondary">{{ posicion.ticker }}</span></td>
+        <td>{{ posicion.nombre_empresa }}</td>
+        <td class="text-end">{{ posicion.cantidad }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted mb-4">Todavía no tienes posiciones, prueba <a href="{{ url_for('main.simular') }}">simulando una operación</a>.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tour de bienvenida, solo aparece justo después de registrarse
+  (function () {
+    const parametros = new URLSearchParams(window.location.search);
+    if (parametros.get("bienvenida") !== "1") return;
+
+    const overlay = document.getElementById("tour-bienvenida");
+    const progreso = document.getElementById("tour-progress");
+    const icono = document.getElementById("tour-icono");
+    const titulo = document.getElementById("tour-titulo");
+    const descripcion = document.getElementById("tour-descripcion");
+    const botonSiguiente = document.getElementById("tour-siguiente");
+    const botonSaltar = document.getElementById("tour-saltar");
+
+    const slides = [
+      {
+        icono: "📊",
+        titulo: "¡Bienvenida a InverTec!",
+        descripcion: "Este es tu espacio para aprender a invertir sin arriesgar dinero real. Tienes $50,000 USD de práctica para explorar el mercado.",
+      },
+      {
+        icono: "🔍",
+        titulo: "Explora el mercado",
+        descripcion: "En la sección Mercado puedes buscar acciones reales (Apple, Tesla, etc.), ver su precio de referencia y nivel de riesgo explicado en lenguaje simple.",
+      },
+      {
+        icono: "⚡",
+        titulo: "Simula en 3 clics",
+        descripcion: 'Desde Simular elige una acción, ajusta la cantidad, consulta el riesgo y confirma. ¡Así de fácil! Los resultados se registran en tu Historial.',
+      },
+    ];
+
+    progreso.innerHTML = slides.map(() => "<span></span>").join("");
+    const segmentos = progreso.querySelectorAll("span");
+    let pasoActual = 0;
+
+    function render() {
+      const slide = slides[pasoActual];
+      icono.textContent = slide.icono;
+      titulo.textContent = slide.titulo;
+      descripcion.textContent = slide.descripcion;
+      segmentos.forEach((segmento, indice) => segmento.classList.toggle("activo", indice <= pasoActual));
+      botonSiguiente.textContent = pasoActual === slides.length - 1 ? "Comenzar" : "Siguiente";
+    }
+
+    function cerrarTour() {
+      overlay.classList.add("d-none");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("bienvenida");
+      window.history.replaceState({}, "", url);
+    }
+
+    botonSiguiente.addEventListener("click", () => {
+      if (pasoActual === slides.length - 1) {
+        cerrarTour();
+        return;
+      }
+      pasoActual += 1;
+      render();
+    });
+
+    botonSaltar.addEventListener("click", cerrarTour);
+
+    overlay.classList.remove("d-none");
+    render();
+  })();
+</script>
+{% endblock %}

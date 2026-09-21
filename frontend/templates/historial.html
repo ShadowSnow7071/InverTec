@@ -1,0 +1,128 @@
+{% extends "app_base.html" %}
+
+{% block title %}Historial | InverTec{% endblock %}
+{% block breadcrumb %}Historial{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Historial</h1>
+<p class="text-muted mb-4">Registro de todas tus operaciones simuladas</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <p class="h3 mb-0">{{ movimientos|length }}</p>
+      <p class="text-muted mb-0">Total</p>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <p class="h3 mb-0">{{ total_compras }}</p>
+      <p class="text-muted mb-0">Compras</p>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <p class="h3 mb-0 text-danger">{{ total_ventas }}</p>
+      <p class="text-muted mb-0">Ventas</p>
+    </div></div>
+  </div>
+</div>
+
+{% if movimientos %}
+<div class="row g-2 mb-3" aria-label="Filtros del historial">
+  <div class="col-md-4">
+    <label class="visually-hidden" for="filtro-ticker">Buscar acción</label>
+    <input class="form-control" id="filtro-ticker" type="search" placeholder="Filtrar por acción..." />
+  </div>
+  <div class="col-md-4">
+    <label class="visually-hidden" for="filtro-tipo">Tipo</label>
+    <select class="form-select" id="filtro-tipo">
+      <option value="todos">Todos</option>
+      <option value="compra">Compras</option>
+      <option value="venta">Ventas</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="visually-hidden" for="filtro-riesgo">Nivel de riesgo</label>
+    <select class="form-select" id="filtro-riesgo">
+      <option value="todos">Todos</option>
+      <option value="bajo">Bajo</option>
+      <option value="medio">Medio</option>
+      <option value="alto">Alto</option>
+      <option value="sin-riesgo">Sin riesgo registrado</option>
+    </select>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table align-middle" id="tabla-movimientos">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Tipo</th>
+        <th>Ticker</th>
+        <th class="text-end">Cantidad</th>
+        <th class="text-end">Riesgo</th>
+        <th class="text-end">Precio</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for movimiento in movimientos %}
+      <tr data-tipo="{{ movimiento.tipo }}" data-ticker="{{ movimiento.ticker }}" data-riesgo="{{ movimiento.riesgo_nivel or 'sin-riesgo' }}">
+        <td class="text-muted">{{ movimiento.fecha[:10] if movimiento.fecha else '—' }}</td>
+        <td><span class="badge text-bg-{{ 'success' if movimiento.tipo == 'compra' else 'danger' }}">{{ movimiento.tipo|capitalize }}</span></td>
+        <td><span class="badge text-bg-secondary">{{ movimiento.ticker }}</span></td>
+        <td class="text-end">{{ movimiento.cantidad }}</td>
+        <td class="text-end">
+          {% if movimiento.riesgo_calculado is not none %}
+          <span class="badge text-bg-{{ 'success' if movimiento.riesgo_nivel == 'bajo' else 'warning' if movimiento.riesgo_nivel == 'medio' else 'danger' }}">
+            {{ movimiento.riesgo_nivel|capitalize }} · {{ movimiento.riesgo_calculado }}
+          </span>
+          {% else %}
+          —
+          {% endif %}
+        </td>
+        <td class="text-end">USD {{ movimiento.precio_unitario }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-muted d-none" id="sin-resultados-movimientos">No hay movimientos que coincidan con los filtros.</p>
+{% else %}
+<p class="text-muted">Aún no tienes movimientos registrados, prueba <a href="{{ url_for('main.simular') }}">simulando una operación</a>.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const filtroTicker = document.getElementById("filtro-ticker");
+  const filtroTipo = document.getElementById("filtro-tipo");
+  const filtroRiesgo = document.getElementById("filtro-riesgo");
+  const sinResultadosMovimientos = document.getElementById("sin-resultados-movimientos");
+
+  function filtrarMovimientos() {
+    const tickerBuscado = filtroTicker.value.trim().toLowerCase();
+    const tipoSeleccionado = filtroTipo.value;
+    const riesgoSeleccionado = filtroRiesgo.value;
+    let visibles = 0;
+
+    document.querySelectorAll("#tabla-movimientos tbody tr").forEach((fila) => {
+      const coincideTicker = fila.dataset.ticker.toLowerCase().includes(tickerBuscado);
+      const coincideTipo = tipoSeleccionado === "todos" || fila.dataset.tipo === tipoSeleccionado;
+      const coincideRiesgo = riesgoSeleccionado === "todos" || fila.dataset.riesgo === riesgoSeleccionado;
+      const visible = coincideTicker && coincideTipo && coincideRiesgo;
+      fila.classList.toggle("d-none", !visible);
+      if (visible) visibles += 1;
+    });
+
+    sinResultadosMovimientos.classList.toggle("d-none", visibles > 0);
+  }
+
+  if (filtroTicker) {
+    [filtroTicker, filtroTipo, filtroRiesgo].forEach((filtro) => {
+      filtro.addEventListener("input", filtrarMovimientos);
+      filtro.addEventListener("change", filtrarMovimientos);
+    });
+  }
+</script>
+{% endblock %}

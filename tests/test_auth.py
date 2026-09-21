@@ -94,7 +94,7 @@ def test_configuracion_html_muestra_formulario_de_edicion(client):
     assert 'name="password"' in contenido
 
 
-def test_perfil_html_muestra_saldo_y_mercado(client):
+def test_perfil_html_muestra_saldo_y_posiciones(client):
     client.post("/api/auth/registro", json=datos_registro("perfil_market@example.com"))
     login = client.post(
         "/api/auth/login",
@@ -110,9 +110,15 @@ def test_perfil_html_muestra_saldo_y_mercado(client):
     assert respuesta.status_code == 200
     contenido = respuesta.get_data(as_text=True)
     assert "Saldo disponible" in contenido
-    assert "Posiciones" in contenido
-    assert "Acciones disponibles" in contenido
-    assert "Simular operación" in contenido
+    assert "Mis posiciones" in contenido
+
+    mercado = client.get("/mercado", headers={"Authorization": f"Bearer {token}"})
+    assert mercado.status_code == 200
+    assert "AAPL" in mercado.get_data(as_text=True)
+
+    simular = client.get("/simular", headers={"Authorization": f"Bearer {token}"})
+    assert simular.status_code == 200
+    assert "Simular operación" in simular.get_data(as_text=True)
 
 
 def test_patch_perfil_actualiza_datos_del_usuario(client):
@@ -320,12 +326,15 @@ def test_flujo_html_registro_perfil_y_logout(client):
     assert registro.status_code == 200
     assert b"Hola, Luis" in registro.data
     assert b"10000.00" in registro.data
-    assert b"AAPL" in registro.data
-    assert b"Apple Inc." in registro.data
-    assert b"Precio de referencia" in registro.data
-    assert b"Los precios de referencia se actualizan" in registro.data
-    assert b"Simular operaci\xc3\xb3n" in registro.data
-    assert b"Consultar riesgo" in registro.data
+
+    mercado = client.get("/mercado")
+    assert b"AAPL" in mercado.data
+    assert b"Apple Inc." in mercado.data
+    assert "Los precios son de referencia".encode() in mercado.data
+
+    simular = client.get("/simular")
+    assert b"Simular operaci\xc3\xb3n" in simular.data
+    assert b"Consultar riesgo" in simular.data
 
     logout = client.post("/logout", follow_redirects=True)
 

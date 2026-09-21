@@ -1,0 +1,173 @@
+{% extends "app_base.html" %}
+
+{% block title %}Simular operación | InverTec{% endblock %}
+{% block breadcrumb %}Simular{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Simular operación</h1>
+<p class="text-muted mb-4">Practica comprar y vender sin arriesgar dinero real</p>
+
+<section class="card simulator-card" aria-labelledby="simulador-titulo">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label simulator-label" for="tipo-operacion">Operación</label>
+        <select class="form-select simulator-control" id="tipo-operacion">
+          <option value="comprar" {{ 'selected' if operacion_inicial != 'vender' }}>Comprar</option>
+          <option value="vender" {{ 'selected' if operacion_inicial == 'vender' }}>Vender</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label simulator-label" for="accion-operacion">Acción</label>
+        <select class="form-select simulator-control" id="accion-operacion">
+          {% for accion in catalogo %}
+          <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}" {{ 'selected' if accion.ticker == ticker_inicial }}>
+            {{ accion.ticker }} — {{ accion.nombre_empresa }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label simulator-label" for="cantidad-operacion">Cantidad</label>
+        <input class="form-control simulator-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label simulator-label" for="precio-operacion">Precio unitario</label>
+        <input class="form-control simulator-control" id="precio-operacion" type="number" readonly />
+      </div>
+    </div>
+    <div class="risk-guide d-none" id="risk-guide" aria-live="polite" aria-label="Resultado del riesgo">
+      <div class="risk-result-values">
+        <span class="risk-result-label">Riesgo calculado</span>
+        <strong id="riesgo-calculado">--</strong>
+        <span class="risk-result-label">Nivel</span>
+        <strong id="riesgo-nivel">--</strong>
+      </div>
+      <div class="risk-explanation">
+        <strong>¿Cómo se calcula?</strong>
+        <span id="explicacion-riesgo">El riesgo combina la exposición de tu operación con la volatilidad de la acción.</span>
+        <div class="risk-breakdown">
+          <span>Exposición: <strong id="riesgo-exposicion">--</strong></span>
+          <span>Volatilidad: <strong id="riesgo-volatilidad">--</strong></span>
+        </div>
+      </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center mt-3">
+      <button class="btn btn-risk" id="consultar-riesgo" type="button">Consultar riesgo</button>
+      <button class="btn btn-primary" id="confirmar-operacion" type="button" disabled>Confirmar operación</button>
+    </div>
+    <div class="alert mt-3 d-none" id="resultado-operacion" role="status"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const tipoOperacion = document.getElementById("tipo-operacion");
+  const accionOperacion = document.getElementById("accion-operacion");
+  const cantidadOperacion = document.getElementById("cantidad-operacion");
+  const precioOperacion = document.getElementById("precio-operacion");
+  const consultarRiesgo = document.getElementById("consultar-riesgo");
+  const confirmarOperacion = document.getElementById("confirmar-operacion");
+  const resultadoOperacion = document.getElementById("resultado-operacion");
+  const riskGuide = document.getElementById("risk-guide");
+  const riesgoCalculado = document.getElementById("riesgo-calculado");
+  const riesgoNivel = document.getElementById("riesgo-nivel");
+  const riesgoExposicion = document.getElementById("riesgo-exposicion");
+  const riesgoVolatilidad = document.getElementById("riesgo-volatilidad");
+  let simulacionValida = false;
+  let riesgoActual = null;
+
+  function invalidarSimulacion(mensaje = "Consulta el riesgo para habilitar la confirmación.") {
+    simulacionValida = false;
+    riesgoActual = null;
+    confirmarOperacion.disabled = true;
+    riskGuide.classList.add("d-none");
+    if (mensaje) mostrarResultado(mensaje, "warning");
+  }
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function mostrarResultado(mensaje, tipo) {
+    resultadoOperacion.textContent = mensaje;
+    resultadoOperacion.className = `alert alert-${tipo} mt-3`;
+  }
+
+  async function actualizarPrecio() {
+    const opcion = accionOperacion.selectedOptions[0];
+    precioOperacion.value = "";
+    invalidarSimulacion(null);
+    resultadoOperacion.className = "alert mt-3 d-none";
+
+    try {
+      const respuesta = await fetch(`/api/acciones/${accionOperacion.value}/precio`);
+      const cuerpo = await respuesta.json();
+      if (!respuesta.ok) throw new Error(cuerpo.error || "No fue posible consultar el precio");
+      precioOperacion.value = cuerpo.precio_actual;
+    } catch (error) {
+      precioOperacion.value = opcion.dataset.precioDemo;
+      mostrarResultado(`${error.message}. Se usará el precio demo.`, "warning");
+    }
+  }
+
+  async function enviarOperacion(url, datos) {
+    const respuesta = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+      body: JSON.stringify(datos),
+    });
+    const cuerpo = await respuesta.json();
+    if (!respuesta.ok) throw new Error(cuerpo.error || "No fue posible completar la operación");
+    return cuerpo;
+  }
+
+  accionOperacion.addEventListener("change", actualizarPrecio);
+  cantidadOperacion.addEventListener("input", () => invalidarSimulacion());
+  tipoOperacion.addEventListener("change", () => invalidarSimulacion());
+  actualizarPrecio();
+
+  consultarRiesgo.addEventListener("click", async () => {
+    invalidarSimulacion(null);
+    try {
+      const cuerpo = await enviarOperacion("/api/portafolio/movimientos/riesgo", {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+      });
+      resultadoOperacion.className = "alert mt-3 d-none";
+      riesgoActual = cuerpo.riesgo_calculado;
+      riesgoCalculado.textContent = `${cuerpo.riesgo_calculado}/100`;
+      riesgoNivel.textContent = cuerpo.riesgo_nivel;
+      riesgoNivel.dataset.nivel = cuerpo.riesgo_nivel;
+      riesgoExposicion.textContent = `${cuerpo.exposicion_porcentaje}% del saldo`;
+      riesgoVolatilidad.textContent = `${cuerpo.volatilidad_porcentaje}%`;
+      riskGuide.classList.remove("d-none");
+      simulacionValida = true;
+      confirmarOperacion.disabled = false;
+    } catch (error) {
+      simulacionValida = false;
+      confirmarOperacion.disabled = true;
+      mostrarResultado(error.message, "danger");
+    }
+  });
+
+  confirmarOperacion.addEventListener("click", async () => {
+    if (!simulacionValida || riesgoActual === null) {
+      invalidarSimulacion("Primero consulta el riesgo para confirmar la operación.");
+      return;
+    }
+    try {
+      await enviarOperacion(`/api/portafolio/${tipoOperacion.value}`, {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+        riesgo_calculado: riesgoActual,
+      });
+      window.location.href = "/historial";
+    } catch (error) {
+      mostrarResultado(error.message, "danger");
+    }
+  });
+</script>
+{% endblock %}
