@@ -18,6 +18,11 @@ def create_app(config_name=None):
     config_cls.validate()
     app.config.from_object(config_cls)
 
+    if app.config.get("TESTING"):
+        from backend.servicios.acciones import AccionServicio
+
+        AccionServicio.limpiar_cache()
+
     db.init_app(app)
     migrate.init_app(app, db, directory=str(RAIZ / "database" / "migrations"))
     jwt.init_app(app)

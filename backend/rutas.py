@@ -44,7 +44,9 @@ def _respuesta_publica(templateo, usuario, limpiar_cookies, **contexto):
 @bp.get("/")
 def index():
     usuario, limpiar_cookies = _usuario_publico()
-    return _respuesta_publica("index.html", usuario, limpiar_cookies)
+    if usuario:
+        return redirect(url_for("main.perfil"))
+    return _respuesta_publica("login.html", usuario, limpiar_cookies)
 
 
 @bp.get("/registro")
@@ -67,7 +69,7 @@ def registro_post():
         flash(exc.mensaje, "danger")
         return render_template("registro.html"), exc.codigo
 
-    respuesta = redirect(url_for("main.perfil"))
+    respuesta = redirect(url_for("main.perfil", bienvenida=1))
     set_access_cookies(respuesta, resultado["access_token"])
     set_refresh_cookies(respuesta, resultado["refresh_token"])
     return respuesta
@@ -116,13 +118,77 @@ def perfil():
     usuario = current_user
     datos_portafolio = portafolio.obtener(int(get_jwt_identity()))
     movimientos = portafolio.listar_movimientos(int(get_jwt_identity()))
-    catalogo = acciones.listar_catalogo(precios_reales=False)
+
+    valor_posiciones = 0
+    for posicion in datos_portafolio["posiciones"]:
+        accion = acciones.obtener_por_ticker(posicion["ticker"])
+        if accion:
+            valor_posiciones += float(posicion["cantidad"]) * float(accion["precio_actual"])
+
     return render_template(
-        "perfil.html",
+        "inicio.html",
+        seccion_activa="inicio",
         usuario_actual=usuario,
         datos_portafolio=datos_portafolio,
-        movimientos=movimientos,
+        valor_posiciones=f"{valor_posiciones:,.2f}",
+        total_compras=sum(1 for m in movimientos if m["tipo"] == "compra"),
+        total_ventas=sum(1 for m in movimientos if m["tipo"] == "venta"),
+    )
+
+
+@bp.get("/mercado")
+@jwt_required()
+def mercado():
+    usuario = current_user
+    catalogo = acciones.listar_catalogo(precios_reales=True)
+    return render_template(
+        "mercado.html",
+        seccion_activa="mercado",
+        usuario_actual=usuario,
         catalogo=catalogo,
+    )
+
+
+@bp.get("/historial")
+@jwt_required()
+def historial():
+    usuario = current_user
+    movimientos = portafolio.listar_movimientos(int(get_jwt_identity()))
+    return render_template(
+        "historial.html",
+        seccion_activa="historial",
+        usuario_actual=usuario,
+        movimientos=movimientos,
+        total_compras=sum(1 for m in movimientos if m["tipo"] == "compra"),
+        total_ventas=sum(1 for m in movimientos if m["tipo"] == "venta"),
+    )
+
+
+@bp.get("/simular")
+@jwt_required()
+def simular():
+    usuario = current_user
+    catalogo = acciones.listar_catalogo(precios_reales=False)
+    return render_template(
+        "simular.html",
+        seccion_activa="simular",
+        usuario_actual=usuario,
+        catalogo=catalogo,
+        ticker_inicial=request.args.get("ticker", "").upper(),
+        operacion_inicial=request.args.get("operacion", "comprar"),
+    )
+
+
+@bp.get("/analisis")
+@jwt_required()
+def analisis():
+    usuario = current_user
+    datos_portafolio = portafolio.obtener(int(get_jwt_identity()))
+    return render_template(
+        "analisis.html",
+        seccion_activa="analisis",
+        usuario_actual=usuario,
+        datos_portafolio=datos_portafolio,
     )
 
 

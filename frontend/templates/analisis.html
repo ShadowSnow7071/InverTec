@@ -1,0 +1,184 @@
+{% extends "app_base.html" %}
+
+{% block title %}Análisis | InverTec{% endblock %}
+{% block breadcrumb %}Análisis{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Análisis</h1>
+<p class="text-muted mb-4">Vista detallada de tu portafolio simulado</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Saldo disponible</p>
+      <p class="h4 mb-0" id="stat-saldo">$0</p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Valor en posiciones</p>
+      <p class="h4 mb-0" id="stat-valor-posiciones">$0</p>
+      <p class="text-muted small mb-0" id="stat-posiciones-count">0 activos</p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Compras / Ventas</p>
+      <p class="h4 mb-0"><span id="stat-compras">0</span> / <span id="stat-ventas">0</span></p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Posiciones activas</p>
+      <p class="h4 mb-0" id="stat-posiciones">0</p>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-body">
+      <h2 class="h6 mb-3">Distribución de activos</h2>
+      <div style="height: 280px; position: relative;">
+        <canvas id="distribucion-activos"></canvas>
+      </div>
+    </div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-body">
+      <h2 class="h6 mb-3">Volatilidad por acción</h2>
+      <div style="height: 280px; position: relative;">
+        <canvas id="volatilidad-activos"></canvas>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Todas las posiciones</h2>
+    {% if datos_portafolio.posiciones %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Empresa</th>
+            <th class="text-end">Cantidad</th>
+            <th class="text-end">Precio actual</th>
+            <th class="text-end">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for posicion in datos_portafolio.posiciones %}
+          <tr>
+            <td><span class="badge text-bg-secondary">{{ posicion.ticker }}</span></td>
+            <td>{{ posicion.nombre_empresa }}</td>
+            <td class="text-end">{{ posicion.cantidad }}</td>
+            <td class="text-end" data-precio="{{ posicion.ticker }}">—</td>
+            <td class="text-end" data-valor="{{ posicion.ticker }}">—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted small mb-0">El costo promedio y la ganancia/pérdida por posición todavía no están disponibles, requieren un cambio de backend que registre el precio de compra promedio (ver nota aparte).</p>
+    {% else %}
+    <p class="text-muted mb-0">Todavía no tienes posiciones.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let chartDistribucion = null;
+  let chartVolatilidad = null;
+
+  async function cargarAnalisis() {
+    try {
+      const respuesta = await fetch("/api/portafolio/analisis");
+      if (!respuesta.ok) throw new Error("No se pudo cargar el análisis");
+      const datos = await respuesta.json();
+
+      document.getElementById("stat-compras").textContent = datos.cantidad_compras;
+      document.getElementById("stat-ventas").textContent = datos.cantidad_ventas;
+      document.getElementById("stat-posiciones").textContent = datos.posiciones_count;
+      document.getElementById("stat-posiciones-count").textContent = `${datos.posiciones_count} activos`;
+      document.getElementById("stat-saldo").textContent = `$${datos.saldo_disponible.toFixed(2)}`;
+      document.getElementById("stat-valor-posiciones").textContent = `$${datos.valor_total_posiciones.toFixed(2)}`;
+
+      document.querySelectorAll("[data-valor]").forEach((celda) => {
+        const ticker = celda.dataset.valor;
+        if (datos.distribucion_activos[ticker] !== undefined) {
+          celda.textContent = `USD ${datos.distribucion_activos[ticker].toFixed(2)}`;
+        }
+      });
+
+      if (Object.keys(datos.distribucion_activos).length > 0) {
+        if (chartDistribucion) chartDistribucion.destroy();
+        const ctxDistribucion = document.getElementById("distribucion-activos").getContext("2d");
+        chartDistribucion = new Chart(ctxDistribucion, {
+          type: "doughnut",
+          data: {
+            labels: Object.keys(datos.distribucion_activos),
+            datasets: [{
+              data: Object.values(datos.distribucion_activos),
+              backgroundColor: ["#67e8c2", "#4d9de0", "#f7c873", "#ff8066", "#9b7ede", "#e83e8c", "#20c997"],
+              borderColor: "#121c21",
+              borderWidth: 2,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {position: "bottom", labels: {color: "#c5d2d0", padding: 15}},
+              tooltip: {callbacks: {label: (ctx) => `${ctx.label}: $${ctx.parsed.toFixed(2)}`}},
+            },
+          },
+        });
+      } else {
+        document.getElementById("distribucion-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
+      }
+
+      if (Object.keys(datos.volatilidades).length > 0) {
+        if (chartVolatilidad) chartVolatilidad.destroy();
+        const volatilidades = datos.volatilidades;
+        const colores = Object.values(volatilidades).map((nivel) =>
+          nivel === "alto" ? "#ff8066" : nivel === "medio" ? "#f7c873" : "#67e8c2"
+        );
+        const ctxVolatilidad = document.getElementById("volatilidad-activos").getContext("2d");
+        chartVolatilidad = new Chart(ctxVolatilidad, {
+          type: "bar",
+          data: {
+            labels: Object.keys(volatilidades),
+            datasets: [{
+              label: "Nivel de riesgo",
+              data: Object.values(volatilidades).map((nivel) => (nivel === "alto" ? 3 : nivel === "medio" ? 2 : 1)),
+              backgroundColor: colores,
+              borderRadius: 4,
+            }],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {legend: {display: false}},
+            scales: {
+              x: {beginAtZero: true, max: 3, ticks: {display: false}, grid: {color: "#26383d"}},
+              y: {ticks: {color: "#c5d2d0"}, grid: {display: false}},
+            },
+          },
+        });
+      } else {
+        document.getElementById("volatilidad-activos").parentElement.innerHTML = "<p class='text-muted'>Sin posiciones para mostrar</p>";
+      }
+    } catch (error) {
+      console.error("Error cargando análisis:", error);
+    }
+  }
+
+  cargarAnalisis();
+</script>
+{% endblock %}

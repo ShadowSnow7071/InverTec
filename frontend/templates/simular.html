@@ -1,0 +1,269 @@
+{% extends "app_base.html" %}
+
+{% block title %}Simular operación | InverTec{% endblock %}
+{% block breadcrumb %}Simular{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Simular operación</h1>
+<p class="text-muted mb-4">Practica comprar y vender sin arriesgar dinero real</p>
+
+<div class="wizard-steps" id="wizard-steps">
+  <div class="wizard-step" data-paso="1">
+    <span class="wizard-step-circle">1</span>
+    <span>Elegir acción</span>
+  </div>
+  <div class="wizard-connector" data-conector="1"></div>
+  <div class="wizard-step" data-paso="2">
+    <span class="wizard-step-circle">2</span>
+    <span>Cantidad y precio</span>
+  </div>
+  <div class="wizard-connector" data-conector="2"></div>
+  <div class="wizard-step" data-paso="3">
+    <span class="wizard-step-circle">3</span>
+    <span>Revisar y confirmar</span>
+  </div>
+</div>
+
+<div class="card wizard-panel">
+  <div class="card-body">
+
+    <div id="paso-1">
+      <h2 class="h5 mb-1">¿Qué acción quieres operar?</h2>
+      <p class="text-muted mb-3">Elige si compras o vendes, y busca la acción</p>
+
+      <p class="simulator-label mb-2">Operación</p>
+      <div class="wizard-toggle mb-3">
+        <button class="wizard-toggle-btn activo" type="button" id="btn-comprar">Comprar</button>
+        <button class="wizard-toggle-btn" type="button" id="btn-vender">Vender</button>
+      </div>
+
+      <label class="simulator-label mb-2" for="accion-operacion">Acción</label>
+      <select class="form-select simulator-control mb-3" id="accion-operacion">
+        {% for accion in catalogo %}
+        <option value="{{ accion.ticker }}" data-precio-demo="{{ accion.precio_actual }}" data-nombre="{{ accion.nombre_empresa }}" {{ 'selected' if accion.ticker == ticker_inicial }}>
+          {{ accion.ticker }} — {{ accion.nombre_empresa }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <button class="btn btn-primary w-100" type="button" id="ir-paso-2">Siguiente — Cantidad y precio →</button>
+    </div>
+
+    <div id="paso-2" class="d-none">
+      <p class="mb-3">
+        <span class="badge text-bg-secondary" id="resumen-ticker-2"></span>
+        <span id="resumen-nombre-2"></span>
+        <span class="badge text-bg-success" id="resumen-tipo-2"></span>
+      </p>
+      <h2 class="h5 mb-1" id="titulo-paso-2">¿Cuánto quieres comprar?</h2>
+      <p class="text-muted mb-3">Ajusta la cantidad y el precio unitario</p>
+
+      <div class="row g-3 mb-3">
+        <div class="col-6">
+          <label class="simulator-label mb-2" for="cantidad-operacion">Cantidad</label>
+          <input class="form-control simulator-control" id="cantidad-operacion" type="number" min="0.0001" step="0.0001" value="1" />
+        </div>
+        <div class="col-6">
+          <label class="simulator-label mb-2" for="precio-operacion">Precio unitario (USD)</label>
+          <input class="form-control simulator-control" id="precio-operacion" type="number" readonly />
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center p-3 mb-3" style="background: var(--surface); border-radius: 10px;">
+        <span class="text-muted">Costo total estimado</span>
+        <strong id="costo-total">USD 0.00</strong>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" type="button" id="volver-paso-1">Atrás</button>
+        <button class="btn btn-primary flex-grow-1" type="button" id="ir-paso-3">Revisar riesgo y confirmar →</button>
+      </div>
+    </div>
+
+    <div id="paso-3" class="d-none">
+      <h2 class="h5 mb-1">Revisar y confirmar</h2>
+      <p class="text-muted mb-3">Consulta el análisis antes de confirmar tu operación</p>
+
+      <div class="mb-3">
+        <div class="wizard-summary-row"><span class="text-muted">Operación</span><span class="badge text-bg-success" id="resumen-tipo-3"></span></div>
+        <div class="wizard-summary-row"><span class="text-muted">Acción</span><span><span class="badge text-bg-secondary" id="resumen-ticker-3"></span> <span id="resumen-nombre-3"></span></span></div>
+        <div class="wizard-summary-row"><span class="text-muted">Cantidad</span><strong id="resumen-cantidad-3"></strong></div>
+        <div class="wizard-summary-row"><span class="text-muted">Precio</span><strong id="resumen-precio-3"></strong></div>
+        <div class="wizard-summary-row"><span class="text-muted">Total</span><strong id="resumen-total-3"></strong></div>
+      </div>
+
+      <div class="alert d-none mb-3" id="riesgo-resultado" aria-live="polite"></div>
+
+      <div class="alert mt-0 d-none" id="resultado-operacion" role="status"></div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" type="button" id="volver-paso-2">Atrás</button>
+        <button class="btn btn-risk flex-grow-1" type="button" id="consultar-riesgo">Consultar riesgo</button>
+        <button class="btn btn-primary flex-grow-1 d-none" type="button" id="confirmar-operacion">Confirmar operación ✓</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const btnComprar = document.getElementById("btn-comprar");
+  const btnVender = document.getElementById("btn-vender");
+  const accionOperacion = document.getElementById("accion-operacion");
+  const cantidadOperacion = document.getElementById("cantidad-operacion");
+  const precioOperacion = document.getElementById("precio-operacion");
+  const costoTotal = document.getElementById("costo-total");
+  const riesgoResultado = document.getElementById("riesgo-resultado");
+  const resultadoOperacion = document.getElementById("resultado-operacion");
+  const consultarRiesgo = document.getElementById("consultar-riesgo");
+  const confirmarOperacion = document.getElementById("confirmar-operacion");
+
+  let tipoOperacion = "{{ operacion_inicial }}" === "vender" ? "vender" : "comprar";
+  let riesgoActual = null;
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function actualizarTipoBotones() {
+    btnComprar.classList.toggle("activo", tipoOperacion === "comprar");
+    btnVender.classList.toggle("activo", tipoOperacion === "vender");
+  }
+  btnComprar.addEventListener("click", () => { tipoOperacion = "comprar"; actualizarTipoBotones(); });
+  btnVender.addEventListener("click", () => { tipoOperacion = "vender"; actualizarTipoBotones(); });
+  actualizarTipoBotones();
+
+  async function actualizarPrecio() {
+    const opcion = accionOperacion.selectedOptions[0];
+    try {
+      const respuesta = await fetch(`/api/acciones/${accionOperacion.value}/precio`);
+      const cuerpo = await respuesta.json();
+      if (!respuesta.ok) throw new Error();
+      precioOperacion.value = cuerpo.precio_actual;
+    } catch (error) {
+      precioOperacion.value = opcion.dataset.precioDemo;
+    }
+    actualizarCostoTotal();
+  }
+
+  function actualizarCostoTotal() {
+    const cantidad = parseFloat(cantidadOperacion.value) || 0;
+    const precio = parseFloat(precioOperacion.value) || 0;
+    costoTotal.textContent = `USD ${(cantidad * precio).toFixed(2)}`;
+  }
+  cantidadOperacion.addEventListener("input", actualizarCostoTotal);
+  accionOperacion.addEventListener("change", actualizarPrecio);
+
+  const pasos = document.querySelectorAll(".wizard-step");
+  const conectores = document.querySelectorAll(".wizard-connector");
+
+  function irAPaso(numero) {
+    ["paso-1", "paso-2", "paso-3"].forEach((id, indice) => {
+      document.getElementById(id).classList.toggle("d-none", indice + 1 !== numero);
+    });
+    pasos.forEach((paso) => {
+      const n = parseInt(paso.dataset.paso, 10);
+      paso.classList.toggle("activo", n === numero);
+      paso.classList.toggle("completado", n < numero);
+      paso.querySelector(".wizard-step-circle").textContent = n < numero ? "✓" : n;
+    });
+    conectores.forEach((conector) => {
+      conector.classList.toggle("completado", parseInt(conector.dataset.conector, 10) < numero);
+    });
+  }
+  irAPaso(1);
+
+  document.getElementById("ir-paso-2").addEventListener("click", async () => {
+    const opcion = accionOperacion.selectedOptions[0];
+    document.getElementById("resumen-ticker-2").textContent = accionOperacion.value;
+    document.getElementById("resumen-nombre-2").textContent = opcion.dataset.nombre;
+    document.getElementById("resumen-tipo-2").textContent = tipoOperacion === "comprar" ? "Compra" : "Venta";
+    document.getElementById("resumen-tipo-2").className = `badge text-bg-${tipoOperacion === "comprar" ? "success" : "danger"}`;
+    document.getElementById("titulo-paso-2").textContent = `¿Cuánto quieres ${tipoOperacion === "comprar" ? "comprar" : "vender"}?`;
+    await actualizarPrecio();
+    irAPaso(2);
+  });
+
+  document.getElementById("volver-paso-1").addEventListener("click", () => irAPaso(1));
+
+  document.getElementById("ir-paso-3").addEventListener("click", () => {
+    const opcion = accionOperacion.selectedOptions[0];
+    riesgoActual = null;
+    riesgoResultado.className = "alert d-none mb-3";
+    resultadoOperacion.className = "alert mt-0 d-none";
+    consultarRiesgo.classList.remove("d-none");
+    confirmarOperacion.classList.add("d-none");
+
+    document.getElementById("resumen-tipo-3").textContent = tipoOperacion === "comprar" ? "Compra" : "Venta";
+    document.getElementById("resumen-tipo-3").className = `badge text-bg-${tipoOperacion === "comprar" ? "success" : "danger"}`;
+    document.getElementById("resumen-ticker-3").textContent = accionOperacion.value;
+    document.getElementById("resumen-nombre-3").textContent = opcion.dataset.nombre;
+    document.getElementById("resumen-cantidad-3").textContent = `${cantidadOperacion.value} acciones`;
+    document.getElementById("resumen-precio-3").textContent = `USD ${precioOperacion.value}`;
+    document.getElementById("resumen-total-3").textContent = costoTotal.textContent;
+    irAPaso(3);
+  });
+
+  document.getElementById("volver-paso-2").addEventListener("click", () => irAPaso(2));
+
+  function textoPorNivel(ticker, nivel) {
+    if (nivel === "alto") return `${ticker} se mueve mucho. Podrías ganar o perder rápido — ideal para aprender con cuidado.`;
+    if (nivel === "medio") return `${ticker} tiene volatilidad moderada. Pueden verse variaciones notables.`;
+    return `${ticker} es relativamente estable. El precio cambia poco a corto plazo.`;
+  }
+
+  async function enviarOperacion(url, datos) {
+    const respuesta = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+      body: JSON.stringify(datos),
+    });
+    const cuerpo = await respuesta.json();
+    if (!respuesta.ok) throw new Error(cuerpo.error || "No fue posible completar la operación");
+    return cuerpo;
+  }
+
+  consultarRiesgo.addEventListener("click", async () => {
+    resultadoOperacion.className = "alert mt-0 d-none";
+    try {
+      const cuerpo = await enviarOperacion("/api/portafolio/movimientos/riesgo", {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+      });
+      riesgoActual = cuerpo.riesgo_calculado;
+      const clase = cuerpo.riesgo_nivel === "alto" ? "danger" : cuerpo.riesgo_nivel === "medio" ? "warning" : "success";
+      riesgoResultado.className = `alert alert-${clase} mb-3`;
+      riesgoResultado.innerHTML = `
+        <strong>Riesgo ${cuerpo.riesgo_nivel.charAt(0).toUpperCase() + cuerpo.riesgo_nivel.slice(1)}</strong>
+        <p class="mb-1">Puntaje: ${cuerpo.riesgo_calculado}</p>
+        <p class="mb-0">${textoPorNivel(accionOperacion.value, cuerpo.riesgo_nivel)}</p>
+      `;
+      consultarRiesgo.classList.add("d-none");
+      confirmarOperacion.classList.remove("d-none");
+    } catch (error) {
+      resultadoOperacion.textContent = error.message;
+      resultadoOperacion.className = "alert alert-danger mt-0";
+    }
+  });
+
+  confirmarOperacion.addEventListener("click", async () => {
+    if (riesgoActual === null) return;
+    try {
+      await enviarOperacion(`/api/portafolio/${tipoOperacion}`, {
+        ticker: accionOperacion.value,
+        cantidad: cantidadOperacion.value,
+        riesgo_calculado: riesgoActual,
+      });
+      window.location.href = "/historial";
+    } catch (error) {
+      resultadoOperacion.textContent = error.message;
+      resultadoOperacion.className = "alert alert-danger mt-0";
+    }
+  });
+
+  actualizarPrecio();
+</script>
+{% endblock %}

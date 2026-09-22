@@ -1,0 +1,146 @@
+{% extends "app_base.html" %}
+
+{% block title %}Mercado | InverTec{% endblock %}
+{% block breadcrumb %}Mercado{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Mercado</h1>
+<p class="text-muted mb-4">Explora acciones y practica tus inversiones sin riesgo real</p>
+
+<div class="alert alert-info mb-4" role="status">
+  Los precios son de referencia y se actualizan al seleccionar una acción. No son datos en tiempo real.
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="market-search mb-3">
+      <label class="visually-hidden" for="buscar-acciones">Buscar acciones</label>
+      <span aria-hidden="true">⌕</span>
+      <input class="form-control" id="buscar-acciones" type="search" placeholder="Buscar AAPL o Apple..." />
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle" id="tabla-mercado">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Empresa</th>
+            <th class="text-end">Precio ref.</th>
+            <th class="text-end">Cambio</th>
+            <th class="text-end">Volatilidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for accion in catalogo %}
+          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" role="button">
+            <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
+            <td>{{ accion.nombre_empresa }}</td>
+            <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
+            <td class="text-end">
+              {% if accion.cambio_porcentaje is not none %}
+              <span class="{{ 'text-success' if accion.cambio_porcentaje|float >= 0 else 'text-danger' }}">
+                {{ '↑' if accion.cambio_porcentaje|float >= 0 else '↓' }} {{ accion.cambio_porcentaje|float|abs }}%
+              </span>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td class="text-end"><span class="badge text-bg-secondary" data-volatilidad-badge>—</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if catalogo and not catalogo[0].cambio_real %}
+    <p class="text-muted small mt-2 mb-0">El % de cambio es una referencia simulada (no hay conexión activa con datos de mercado en este momento).</p>
+    {% endif %}
+    <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card sticky-top" style="top: 1.5rem;" id="detalle-accion">
+      <div class="card-body">
+        <p class="text-muted mb-0">Selecciona una acción de la lista para ver su detalle y nivel de riesgo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const buscarAcciones = document.getElementById("buscar-acciones");
+  const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
+  const detalleAccion = document.getElementById("detalle-accion");
+
+  function filtrarMercado() {
+    const consulta = buscarAcciones.value.trim().toLowerCase();
+    const filas = [...document.querySelectorAll("#tabla-mercado tbody tr")];
+    const coincidencias = filas.filter((fila) => {
+      const texto = `${fila.dataset.ticker} ${fila.dataset.nombre}`.toLowerCase();
+      return texto.includes(consulta);
+    });
+    filas.forEach((fila) => fila.classList.add("d-none"));
+    coincidencias.forEach((fila) => fila.classList.remove("d-none"));
+    sinResultadosMercado.classList.toggle("d-none", coincidencias.length > 0);
+  }
+  buscarAcciones.addEventListener("input", filtrarMercado);
+
+  function nivelDeVolatilidad(valor) {
+    if (valor >= 35) return {texto: "Alto", clase: "danger"};
+    if (valor >= 22) return {texto: "Medio", clase: "warning"};
+    return {texto: "Bajo", clase: "success"};
+  }
+
+  async function cargarVolatilidad(fila) {
+    try {
+      const respuesta = await fetch(`/api/acciones/${fila.dataset.ticker}`);
+      if (!respuesta.ok) return;
+      const datos = await respuesta.json();
+      const nivel = nivelDeVolatilidad(parseFloat(datos.volatilidad));
+      const badge = fila.querySelector("[data-volatilidad-badge]");
+      badge.textContent = `${nivel.texto} · ${datos.volatilidad}`;
+      badge.className = `badge text-bg-${nivel.clase}`;
+      fila.dataset.volatilidad = datos.volatilidad;
+      fila.dataset.nombreCompleto = datos.nombre_empresa;
+      fila.dataset.precio = datos.precio_actual;
+    } catch (error) {
+      // Si falla, se deja el guion por defecto
+    }
+  }
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarVolatilidad);
+
+  const textoPorNivel = (ticker, nivel) => {
+    if (nivel === "alto") return `${ticker} se mueve mucho. Podrías ganar o perder rápido — ideal para aprender con cuidado.`;
+    if (nivel === "medio") return `${ticker} tiene volatilidad moderada. Pueden verse variaciones notables.`;
+    return `${ticker} es relativamente estable. El precio cambia poco a corto plazo.`;
+  };
+
+  function mostrarDetalle(fila) {
+    const nivel = nivelDeVolatilidad(parseFloat(fila.dataset.volatilidad || "0"));
+    detalleAccion.innerHTML = `
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <span class="badge text-bg-secondary">${fila.dataset.ticker}</span>
+          <button class="btn-close" aria-label="Cerrar" id="cerrar-detalle"></button>
+        </div>
+        <h2 class="h5 mb-1">${fila.dataset.nombreCompleto || fila.dataset.nombre}</h2>
+        <p class="text-muted mb-3">Precio de referencia</p>
+        <p class="display-6 mb-3">USD ${fila.dataset.precio || "--"}</p>
+        <div class="alert alert-${nivel.clase} mb-3">
+          <strong>Riesgo ${nivel.texto}</strong>
+          <p class="mb-1">Puntaje: ${fila.dataset.volatilidad || "--"}</p>
+          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, nivel.clase === "success" ? "bajo" : nivel.clase === "warning" ? "medio" : "alto")}</p>
+        </div>
+        <a class="btn btn-primary w-100" href="/simular?ticker=${fila.dataset.ticker}">Simular con ${fila.dataset.ticker}</a>
+      </div>
+    `;
+    document.getElementById("cerrar-detalle").addEventListener("click", () => {
+      detalleAccion.innerHTML = '<div class="card-body"><p class="text-muted mb-0">Selecciona una acción de la lista para ver su detalle y nivel de riesgo.</p></div>';
+    });
+  }
+
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
+    fila.addEventListener("click", () => mostrarDetalle(fila));
+  });
+</script>
+{% endblock %}

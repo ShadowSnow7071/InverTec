@@ -37,8 +37,12 @@ class AccionServicio:
     _precios_cache = {}
     _cache_segundos = 60
 
+    @classmethod
+    def limpiar_cache(cls):
+        cls._precios_cache.clear()
+
     @staticmethod
-    def _precio_externo(ticker: str):
+    def _cotizacion_externa(ticker: str):
         api_key = os.environ.get("MARKET_DATA_API_KEY")
         if not api_key:
             return None
@@ -58,39 +62,62 @@ class AccionServicio:
 
         cotizacion = datos.get("Global Quote", {})
         precio = cotizacion.get("05. price")
+        cambio_porcentaje = cotizacion.get("10. change percent", "").rstrip("%")
         try:
-            return Decimal(str(precio)).quantize(Decimal("0.01"))
+            precio_decimal = Decimal(str(precio)).quantize(Decimal("0.01"))
         except (InvalidOperation, TypeError, ValueError):
             return None
+        try:
+            cambio_decimal = Decimal(str(cambio_porcentaje)).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            cambio_decimal = None
+        return {"precio": str(precio_decimal), "cambio_porcentaje": str(cambio_decimal) if cambio_decimal is not None else None}
+
+    @staticmethod
+    def _cambio_demo(ticker: str):
+        # Sin API key: cambio simulado pero estable por ticker (mismo valor en cada carga),
+        # NO son datos de mercado reales.
+        semilla = sum(ord(caracter) for caracter in ticker)
+        return str(Decimal((semilla % 400) - 200) / Decimal("100"))
+
+    @classmethod
+    def _cotizacion(cls, ticker: str):
+        if not os.environ.get("MARKET_DATA_API_KEY"):
+            return {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
+
+        guardado = cls._precios_cache.get(ticker)
+        if guardado and time.monotonic() - guardado[0] < cls._cache_segundos:
+            return guardado[1]
+
+        cotizacion = cls._cotizacion_externa(ticker)
+        if cotizacion is not None:
+            resultado = {**cotizacion, "real": True}
+            cls._precios_cache[ticker] = (time.monotonic(), resultado)
+            return resultado
+        return {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
 
     @classmethod
     def _precio_actual(cls, ticker: str):
-        if not os.environ.get("MARKET_DATA_API_KEY"):
-            return PRECIOS_BASE[ticker]
-
-        precio_guardado = cls._precios_cache.get(ticker)
-        if precio_guardado and time.monotonic() - precio_guardado[0] < cls._cache_segundos:
-            return precio_guardado[1]
-
-        precio_externo = cls._precio_externo(ticker)
-        if precio_externo is not None:
-            precio = str(precio_externo)
-            cls._precios_cache[ticker] = (time.monotonic(), precio)
-            return precio
-        return PRECIOS_BASE[ticker]
+        return cls._cotizacion(ticker)["precio"]
 
     @classmethod
     def listar_catalogo(cls, precios_reales=True):
-        return [
-            {
-                "ticker": ticker,
-                "nombre_empresa": datos["nombre_empresa"],
-                "precio_actual": (
-                    cls._precio_actual(ticker) if precios_reales else PRECIOS_BASE[ticker]
-                ),
-            }
-            for ticker, datos in sorted(CATALOGO.items())
-        ]
+        resultado = []
+        for ticker, datos in sorted(CATALOGO.items()):
+            if precios_reales:
+                cotizacion = cls._cotizacion(ticker)
+            else:
+                cotizacion = {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
+            resultado.append(
+                {
+                    "ticker": ticker,
+                    "nombre_empresa": datos["nombre_empresa"],
+                    "precio_actual": cotizacion["precio"],
+                    "cambio_porcentaje": cotizacion["cambio_porcentaje"],
+                    "cambio_real": cotizacion["real"],
+                }
+            )
+        return resultado
 
     @classmethod
     def obtener_por_ticker(cls, ticker: str):
@@ -98,10 +125,13 @@ class AccionServicio:
         if clave not in CATALOGO:
             return None
         volatilidad = Decimal(CATALOGO[clave]["volatilidad"]) * Decimal("100")
+        cotizacion = cls._cotizacion(clave)
         return {
             "ticker": clave,
             "nombre_empresa": CATALOGO[clave]["nombre_empresa"],
-            "precio_actual": cls._precio_actual(clave),
+            "precio_actual": cotizacion["precio"],
+            "cambio_porcentaje": cotizacion["cambio_porcentaje"],
+            "cambio_real": cotizacion["real"],
             "volatilidad": str(volatilidad.quantize(Decimal("0.01"))),
         }
 
