@@ -4,6 +4,7 @@ SQLAlchemy>=2.0,<3
 Flask-Migrate>=4.0
 Flask-JWT-Extended>=4.6
 PyMySQL>=1.1
+gunicorn>=22.0
 python-dotenv>=1.0
 resend==2.47.0
 pytest>=8.0
