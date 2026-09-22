@@ -92,7 +92,7 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
 
 
 def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "compra@example.com")
 
     respuesta = client.post(
@@ -110,7 +110,7 @@ def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
 
 
 def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "venta@example.com")
     with app.app_context():
         usuario = db.session.query(Usuario).one()
@@ -142,7 +142,7 @@ def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
 
 
 def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "riesgo_compra@example.com")
 
     respuesta = client.post(
@@ -161,7 +161,7 @@ def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeyp
 
 
 def test_compra_requiere_riesgo_calculado(client, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "riesgo_requerido@example.com")
 
     respuesta = client.post(
@@ -210,7 +210,7 @@ def test_api_accion_incluye_volatilidad_y_detalle(client, monkeypatch):
 
 
 def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "riesgo@example.com")
 
     respuesta = client.post(
@@ -228,7 +228,7 @@ def test_riesgo_movimiento_retorna_escala_valida(client, app, monkeypatch):
     assert cuerpo["riesgo_nivel"] in {"bajo", "medio", "alto"}
 
 def test_analisis_portafolio_devuelve_estadisticas(client, app, monkeypatch):
-    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._precio_externo", lambda _: None)
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "analisis@example.com")
     with app.app_context():
         usuario = db.session.query(Usuario).one()

@@ -352,6 +352,12 @@ body {
   background-color: #8b3f3b !important;
 }
 
+.alert-success {
+  --bs-alert-color: #c3f5e4;
+  --bs-alert-bg: #10302a;
+  --bs-alert-border-color: #285c4c;
+}
+
 .alert-info {
   --bs-alert-color: #b9f5e4;
   --bs-alert-bg: #123b3b;
@@ -795,4 +801,99 @@ body {
   .app-sidebar {
     display: none;
   }
+}
+
+/* Wizard de Simular operación */
+.wizard-steps {
+  align-items: center;
+  display: flex;
+  margin-bottom: 2rem;
+}
+
+.wizard-step {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  gap: 0.6rem;
+}
+
+.wizard-step-circle {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  height: 1.75rem;
+  justify-content: center;
+  width: 1.75rem;
+}
+
+.wizard-step.activo {
+  color: var(--teal);
+}
+
+.wizard-step.activo .wizard-step-circle {
+  background: rgba(103, 232, 194, 0.12);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.wizard-step.completado {
+  color: var(--teal);
+}
+
+.wizard-step.completado .wizard-step-circle {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--teal-dark);
+}
+
+.wizard-connector {
+  background: var(--line);
+  flex: 1;
+  height: 1px;
+  margin: 0 0.75rem;
+}
+
+.wizard-connector.completado {
+  background: var(--teal);
+}
+
+.wizard-panel {
+  max-width: 620px;
+}
+
+.wizard-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wizard-toggle-btn {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  flex: 1;
+  padding: 0.6rem;
+}
+
+.wizard-toggle-btn.activo {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--teal-dark);
+  font-weight: 700;
+}
+
+.wizard-summary-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+}
+
+.wizard-summary-row:last-child {
+  border-bottom: 0;
 }
