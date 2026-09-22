@@ -70,7 +70,7 @@
   <h2 class="h5 mb-0">Mis posiciones</h2>
   <a class="text-decoration-none" href="{{ url_for('main.analisis') }}">Ver todas →</a>
 </div>
-{% if datos_portafolio.posiciones %}
+{% if posiciones_con_detalle %}
 <div class="table-responsive mb-4">
   <table class="table align-middle">
     <thead>
@@ -78,14 +78,21 @@
         <th>Ticker</th>
         <th>Empresa</th>
         <th class="text-end">Cantidad</th>
+        <th class="text-end">Valor actual</th>
+        <th class="text-end">G/P</th>
       </tr>
     </thead>
     <tbody>
-      {% for posicion in datos_portafolio.posiciones %}
+      {% for posicion in posiciones_con_detalle %}
       <tr>
         <td><span class="badge text-bg-secondary">{{ posicion.ticker }}</span></td>
         <td>{{ posicion.nombre_empresa }}</td>
         <td class="text-end">{{ posicion.cantidad }}</td>
+        <td class="text-end">USD {{ posicion.valor_actual }}</td>
+        <td class="text-end {{ 'text-success' if posicion.ganancia_perdida >= 0 else 'text-danger' }}">
+          {{ '+' if posicion.ganancia_perdida >= 0 else '' }}USD {{ '%.2f'|format(posicion.ganancia_perdida) }}
+          ({{ '+' if posicion.ganancia_porcentaje >= 0 else '' }}{{ '%.2f'|format(posicion.ganancia_porcentaje) }}%)
+        </td>
       </tr>
       {% endfor %}
     </tbody>

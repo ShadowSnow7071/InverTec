@@ -102,6 +102,41 @@ class PortafolioServicio:
             raise ErrorNegocio("Movimiento no encontrado", 404)
         return self._movimiento_dict(movimiento)
 
+    def costo_promedio_por_ticker(self, usuario_id: int):
+        portafolio = self._obtener_portafolio(usuario_id)
+        if portafolio is None:
+            return {}
+        return self._costo_promedio(portafolio.id)
+
+    @staticmethod
+    def _costo_promedio(portafolio_id):
+        # Costo promedio ponderado: cada compra suma cantidad*precio al costo
+        # acumulado; cada venta reduce el costo acumulado proporcionalmente
+        # al promedio vigente en ese momento (no afecta el promedio en sí).
+        filas = db.session.execute(
+            select(Movimiento.accion_id, Accion.ticker, Movimiento.tipo, Movimiento.cantidad, Movimiento.precio_unitario)
+            .join(Accion, Accion.id == Movimiento.accion_id)
+            .where(Movimiento.portafolio_id == portafolio_id)
+            .order_by(Movimiento.fecha.asc(), Movimiento.id.asc())
+        )
+        acumulado = {}
+        for accion_id, ticker, tipo, cantidad, precio in filas:
+            cantidad_acum, costo_acum = acumulado.get(ticker, (Decimal("0"), Decimal("0")))
+            if tipo.value == "compra":
+                costo_acum += cantidad * precio
+                cantidad_acum += cantidad
+            else:
+                if cantidad_acum > 0:
+                    costo_acum -= (costo_acum / cantidad_acum) * cantidad
+                cantidad_acum -= cantidad
+            acumulado[ticker] = (cantidad_acum, costo_acum)
+
+        return {
+            ticker: (costo_acum / cantidad_acum)
+            for ticker, (cantidad_acum, costo_acum) in acumulado.items()
+            if cantidad_acum > 0
+        }
+
     @staticmethod
     def _obtener_portafolio(usuario_id: int):
         return db.session.scalar(
