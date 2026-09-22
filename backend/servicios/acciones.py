@@ -37,6 +37,10 @@ class AccionServicio:
     _precios_cache = {}
     _cache_segundos = 60
 
+    @classmethod
+    def limpiar_cache(cls):
+        cls._precios_cache.clear()
+
     @staticmethod
     def _cotizacion_externa(ticker: str):
         api_key = os.environ.get("MARKET_DATA_API_KEY")
