@@ -25,6 +25,7 @@
             <th>Ticker</th>
             <th>Empresa</th>
             <th class="text-end">Precio ref.</th>
+            <th class="text-end">Cambio</th>
             <th class="text-end">Volatilidad</th>
           </tr>
         </thead>
@@ -34,12 +35,24 @@
             <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
             <td>{{ accion.nombre_empresa }}</td>
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
+            <td class="text-end">
+              {% if accion.cambio_porcentaje is not none %}
+              <span class="{{ 'text-success' if accion.cambio_porcentaje|float >= 0 else 'text-danger' }}">
+                {{ '↑' if accion.cambio_porcentaje|float >= 0 else '↓' }} {{ accion.cambio_porcentaje|float|abs }}%
+              </span>
+              {% else %}
+              —
+              {% endif %}
+            </td>
             <td class="text-end"><span class="badge text-bg-secondary" data-volatilidad-badge>—</span></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if catalogo and not catalogo[0].cambio_real %}
+    <p class="text-muted small mt-2 mb-0">El % de cambio es una referencia simulada (no hay conexión activa con datos de mercado en este momento).</p>
+    {% endif %}
     <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
   </div>
 
@@ -96,6 +109,12 @@
   }
   document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarVolatilidad);
 
+  const textoPorNivel = (ticker, nivel) => {
+    if (nivel === "alto") return `${ticker} se mueve mucho. Podrías ganar o perder rápido — ideal para aprender con cuidado.`;
+    if (nivel === "medio") return `${ticker} tiene volatilidad moderada. Pueden verse variaciones notables.`;
+    return `${ticker} es relativamente estable. El precio cambia poco a corto plazo.`;
+  };
+
   function mostrarDetalle(fila) {
     const nivel = nivelDeVolatilidad(parseFloat(fila.dataset.volatilidad || "0"));
     detalleAccion.innerHTML = `
@@ -109,7 +128,8 @@
         <p class="display-6 mb-3">USD ${fila.dataset.precio || "--"}</p>
         <div class="alert alert-${nivel.clase} mb-3">
           <strong>Riesgo ${nivel.texto}</strong>
-          <p class="mb-0">Puntaje: ${fila.dataset.volatilidad || "--"}</p>
+          <p class="mb-1">Puntaje: ${fila.dataset.volatilidad || "--"}</p>
+          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, nivel.clase === "success" ? "bajo" : nivel.clase === "warning" ? "medio" : "alto")}</p>
         </div>
         <a class="btn btn-primary w-100" href="/simular?ticker=${fila.dataset.ticker}">Simular con ${fila.dataset.ticker}</a>
       </div>

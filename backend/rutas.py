@@ -140,7 +140,7 @@ def perfil():
 @jwt_required()
 def mercado():
     usuario = current_user
-    catalogo = acciones.listar_catalogo(precios_reales=False)
+    catalogo = acciones.listar_catalogo(precios_reales=True)
     return render_template(
         "mercado.html",
         seccion_activa="mercado",
