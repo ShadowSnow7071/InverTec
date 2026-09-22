@@ -1,0 +1,4 @@
+# Los scripts que corren dentro de contenedores Linux deben conservar
+# terminadores de línea Unix (LF) sin importar el sistema operativo
+# donde se clone o edite el repositorio.
+*.sh text eol=lf
