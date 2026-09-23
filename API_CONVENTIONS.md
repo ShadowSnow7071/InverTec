@@ -15,16 +15,21 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 ## Portafolio y movimientos
 - `GET /api/portafolio` — devuelve el portafolio del usuario autenticado
 - `GET /api/portafolio/movimientos` — historial completo de movimientos
-- `POST /api/portafolio/movimientos` — registra una compra o venta nueva
 - `GET /api/portafolio/movimientos/{id}` — detalle de un movimiento específico
 - `POST /api/portafolio/movimientos/riesgo` — evalúa el riesgo de un movimiento hipotético antes de confirmarlo (solo lectura, no guarda nada)
+- `POST /api/portafolio/comprar` — registra una compra (requiere `ticker`, `cantidad` y `riesgo_calculado`, revalidado contra el riesgo recalculado en servidor)
+- `POST /api/portafolio/vender` — registra una venta (mismo contrato que comprar)
+- `GET /api/portafolio/analisis` — estadísticas del portafolio: saldo disponible, valor total en posiciones, capital invertido (costo promedio ponderado), ganancia/pérdida absoluta y porcentual, distribución de activos, volatilidad por posición y detalle por posición (`precio_promedio`, `precio_actual`, `valor`, `ganancia_perdida`)
 
 ## Acciones (catálogo de mercado)
 - `GET /api/acciones` — catálogo de acciones disponibles para simular
+- `GET /api/acciones/{ticker}` — detalle de una acción: nombre, precio actual, cambio porcentual y volatilidad
 - `GET /api/acciones/{ticker}/precio` — precio actual de una acción vía la API externa
 
-El proveedor externo se configura con `MARKET_DATA_API_KEY`. Sin esa variable, la
-aplicación usa precios demo para permitir pruebas locales sin depender de Internet.
+El proveedor externo se configura con `MARKET_DATA_API_KEY`. Sin esa variable, o si la
+llamada externa falla (por ejemplo, por el límite de peticiones gratuitas), la aplicación
+usa precio y cambio porcentual demo para permitir pruebas locales sin depender de Internet;
+en ese caso el catálogo de `/api/acciones` marca cada acción con `cambio_real: false`.
 
 ## Reglas generales
 - Rutas bajo `/api/*` devuelven JSON. Rutas fuera de `/api/*` (login, registro, simulador) devuelven HTML vía Jinja2.
