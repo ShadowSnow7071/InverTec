@@ -24,7 +24,7 @@ def test_registro_crea_usuario_portafolio_y_tokens(client, app):
     with app.app_context():
         usuario = db.session.query(Usuario).one()
         assert usuario.portafolio is not None
-        assert usuario.portafolio.saldo_virtual == 10000
+        assert usuario.portafolio.saldo_virtual == 50000
         assert usuario.password_hash != "Secreto12!"
 
 
@@ -62,7 +62,7 @@ def test_login_y_perfil_protegido(client):
 
     assert login.status_code == 200
     assert respuesta.status_code == 200
-    assert respuesta.get_json()["saldo_virtual"] == "10000.00"
+    assert respuesta.get_json()["saldo_virtual"] == "50000.00"
 
 
 def test_perfil_sin_token_rechaza_acceso(client):
@@ -139,7 +139,7 @@ def test_patch_perfil_actualiza_datos_del_usuario(client):
     cuerpo = respuesta.get_json()
     assert cuerpo["nombre"] == "Ana Updated"
     assert cuerpo["correo"] == "nuevo@example.com"
-    assert cuerpo["saldo_virtual"] == "10000.00"
+    assert cuerpo["saldo_virtual"] == "50000.00"
 
 
 def test_patch_perfil_rechaza_password_debil(client):
@@ -325,7 +325,7 @@ def test_flujo_html_registro_perfil_y_logout(client):
 
     assert registro.status_code == 200
     assert b"Hola, Luis" in registro.data
-    assert b"10000.00" in registro.data
+    assert b"50000.00" in registro.data
 
     mercado = client.get("/mercado")
     assert b"AAPL" in mercado.data

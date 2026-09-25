@@ -72,6 +72,7 @@ def comprar():
             datos.get("ticker"),
             datos.get("cantidad"),
             datos.get("riesgo_calculado"),
+            datos.get("password"),
         )
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)

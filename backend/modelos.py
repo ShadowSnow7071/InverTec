@@ -74,8 +74,8 @@ class Portafolio(db.Model):
     saldo_virtual: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),
         nullable=False,
-        default=Decimal("10000.00"),
-        server_default="10000.00",
+        default=Decimal("50000.00"),
+        server_default="50000.00",
     )
     fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

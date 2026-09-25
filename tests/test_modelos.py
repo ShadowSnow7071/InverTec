@@ -27,7 +27,7 @@ def test_usuario_y_portafolio_uno_a_uno(app):
 
     guardado = db.session.get(Usuario, usuario.id)
     assert guardado.portafolio is not None
-    assert guardado.portafolio.saldo_virtual == Decimal("10000.00")
+    assert guardado.portafolio.saldo_virtual == Decimal("50000.00")
 
 
 def test_movimiento_relaciona_portafolio_y_accion(app):

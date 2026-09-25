@@ -2,27 +2,36 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import joinedload
+from werkzeug.security import check_password_hash
 
 from backend.conexion import db
-from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento
+from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento, Usuario
 from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import ErrorNegocio
 
 
 class PortafolioServicio:
+    # A partir de esta cantidad de acciones, comprar exige confirmar la
+    # contraseña de la cuenta antes de ejecutar la operación.
+    UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD = Decimal("20")
+
     def obtener(self, usuario_id: int):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             return None
         return self._estado_portafolio(portafolio)
 
-    def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None):
+    def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None, password=None):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
         accion = self._obtener_o_crear_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
+
+        if cantidad_decimal > self.UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD:
+            self._validar_password_confirmacion(usuario_id, password)
+
         precio_decimal = self._precio_de_mercado(accion.ticker)
         riesgo_decimal = self._validar_riesgo(
             accion.ticker, cantidad_decimal, portafolio.saldo_virtual, riesgo_calculado
@@ -195,6 +204,18 @@ class PortafolioServicio:
         if not decimal_valor.is_finite():
             raise ErrorNegocio(f"El campo {nombre} no es válido")
         return decimal_valor
+
+    @classmethod
+    def _validar_password_confirmacion(cls, usuario_id, password):
+        if not password:
+            raise ErrorNegocio(
+                "Debes confirmar tu contraseña para comprar más de "
+                f"{cls.UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD} acciones",
+                400,
+            )
+        usuario = db.session.scalar(select(Usuario).where(Usuario.id == usuario_id))
+        if usuario is None or not check_password_hash(usuario.password_hash, password):
+            raise ErrorNegocio("La contraseña no es correcta", 401)
 
     @staticmethod
     def _parse_riesgo(valor):

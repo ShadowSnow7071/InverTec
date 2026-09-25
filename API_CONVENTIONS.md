@@ -17,8 +17,8 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 - `GET /api/portafolio/movimientos` — historial completo de movimientos
 - `GET /api/portafolio/movimientos/{id}` — detalle de un movimiento específico
 - `POST /api/portafolio/movimientos/riesgo` — evalúa el riesgo de un movimiento hipotético antes de confirmarlo (solo lectura, no guarda nada)
-- `POST /api/portafolio/comprar` — registra una compra (requiere `ticker`, `cantidad` y `riesgo_calculado`, revalidado contra el riesgo recalculado en servidor)
-- `POST /api/portafolio/vender` — registra una venta (mismo contrato que comprar)
+- `POST /api/portafolio/comprar` — registra una compra (requiere `ticker`, `cantidad` y `riesgo_calculado`, revalidado contra el riesgo recalculado en servidor). Si `cantidad` supera 20 acciones, también requiere `password` (la contraseña de la cuenta, para confirmar compras grandes); si falta o no coincide, responde 400/401 y no ejecuta la compra
+- `POST /api/portafolio/vender` — registra una venta (mismo contrato que comprar, sin el requisito de `password`)
 - `GET /api/portafolio/analisis` — estadísticas del portafolio: saldo disponible, valor total en posiciones, capital invertido (costo promedio ponderado), ganancia/pérdida absoluta y porcentual, distribución de activos, volatilidad por posición y detalle por posición (`precio_promedio`, `precio_actual`, `valor`, `ganancia_perdida`)
 
 ## Acciones (catálogo de mercado)
