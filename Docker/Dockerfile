@@ -16,8 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Usuario sin privilegios (no correr la app como root)
+# Por si el archivo llega con terminadores de línea de Windows (CRLF)
 RUN useradd --create-home --shell /bin/bash appuser \
     && mkdir -p instance \
+    && sed -i 's/\r$//' Docker/entrypoint.sh \
     && chmod +x Docker/entrypoint.sh \
     && chown -R appuser:appuser /app
 

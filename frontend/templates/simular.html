@@ -69,6 +69,8 @@
         </div>
       </div>
 
+      <div class="alert alert-danger mb-3 d-none" id="error-cantidad-precio" role="alert">La cantidad y el precio deben ser mayores a cero</div>
+
       <div class="d-flex justify-content-between align-items-center p-3 mb-3" style="background: var(--surface); border-radius: 10px;">
         <span class="text-muted">Costo total estimado</span>
         <strong id="costo-total">USD 0.00</strong>
@@ -94,6 +96,12 @@
 
       <div class="alert d-none mb-3" id="riesgo-resultado" aria-live="polite"></div>
 
+      <div class="mb-3 d-none" id="confirmacion-password">
+        <label class="simulator-label mb-2" for="password-confirmacion">Confirma tu contraseña para esta compra</label>
+        <input class="form-control simulator-control" id="password-confirmacion" type="password" autocomplete="current-password" />
+        <div class="form-text">Las compras de más de 20 acciones piden tu contraseña como paso extra de seguridad.</div>
+      </div>
+
       <div class="alert mt-0 d-none" id="resultado-operacion" role="status"></div>
 
       <div class="d-flex gap-2">
@@ -115,10 +123,15 @@
   const cantidadOperacion = document.getElementById("cantidad-operacion");
   const precioOperacion = document.getElementById("precio-operacion");
   const costoTotal = document.getElementById("costo-total");
+  const errorCantidadPrecio = document.getElementById("error-cantidad-precio");
   const riesgoResultado = document.getElementById("riesgo-resultado");
   const resultadoOperacion = document.getElementById("resultado-operacion");
   const consultarRiesgo = document.getElementById("consultar-riesgo");
   const confirmarOperacion = document.getElementById("confirmar-operacion");
+  const confirmacionPassword = document.getElementById("confirmacion-password");
+  const passwordConfirmacion = document.getElementById("password-confirmacion");
+
+  const UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD = 20;
 
   let tipoOperacion = "{{ operacion_inicial }}" === "vender" ? "vender" : "comprar";
   let riesgoActual = null;
@@ -154,7 +167,23 @@
     const precio = parseFloat(precioOperacion.value) || 0;
     costoTotal.textContent = `USD ${(cantidad * precio).toFixed(2)}`;
   }
-  cantidadOperacion.addEventListener("input", actualizarCostoTotal);
+
+  function cantidadPrecioValidos() {
+    const cantidad = parseFloat(cantidadOperacion.value);
+    const precio = parseFloat(precioOperacion.value);
+    return cantidad > 0 && precio > 0;
+  }
+
+  function validarCantidadPrecio() {
+    const valido = cantidadPrecioValidos();
+    errorCantidadPrecio.classList.toggle("d-none", valido);
+    return valido;
+  }
+
+  cantidadOperacion.addEventListener("input", () => {
+    actualizarCostoTotal();
+    validarCantidadPrecio();
+  });
   accionOperacion.addEventListener("change", actualizarPrecio);
 
   const pasos = document.querySelectorAll(".wizard-step");
@@ -184,18 +213,27 @@
     document.getElementById("resumen-tipo-2").className = `badge text-bg-${tipoOperacion === "comprar" ? "success" : "danger"}`;
     document.getElementById("titulo-paso-2").textContent = `¿Cuánto quieres ${tipoOperacion === "comprar" ? "comprar" : "vender"}?`;
     await actualizarPrecio();
+    validarCantidadPrecio();
     irAPaso(2);
   });
 
   document.getElementById("volver-paso-1").addEventListener("click", () => irAPaso(1));
 
   document.getElementById("ir-paso-3").addEventListener("click", () => {
+    if (!validarCantidadPrecio()) {
+      cantidadOperacion.focus();
+      return;
+    }
     const opcion = accionOperacion.selectedOptions[0];
     riesgoActual = null;
     riesgoResultado.className = "alert d-none mb-3";
     resultadoOperacion.className = "alert mt-0 d-none";
     consultarRiesgo.classList.remove("d-none");
     confirmarOperacion.classList.add("d-none");
+
+    const requierePassword = tipoOperacion === "comprar" && parseFloat(cantidadOperacion.value) > UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD;
+    confirmacionPassword.classList.toggle("d-none", !requierePassword);
+    passwordConfirmacion.value = "";
 
     document.getElementById("resumen-tipo-3").textContent = tipoOperacion === "comprar" ? "Compra" : "Venta";
     document.getElementById("resumen-tipo-3").className = `badge text-bg-${tipoOperacion === "comprar" ? "success" : "danger"}`;
@@ -214,6 +252,11 @@
     if (nivel === "medio") return `${ticker} tiene volatilidad moderada. Pueden verse variaciones notables.`;
     return `${ticker} es relativamente estable. El precio cambia poco a corto plazo.`;
   }
+
+  const MENSAJES_VALIDACION_CANTIDAD_PRECIO = [
+    "La cantidad y el precio deben ser mayores a cero",
+    "La cantidad o el saldo no son válidos",
+  ];
 
   async function enviarOperacion(url, datos) {
     const respuesta = await fetch(url, {
@@ -244,19 +287,33 @@
       consultarRiesgo.classList.add("d-none");
       confirmarOperacion.classList.remove("d-none");
     } catch (error) {
-      resultadoOperacion.textContent = error.message;
-      resultadoOperacion.className = "alert alert-danger mt-0";
+      if (!MENSAJES_VALIDACION_CANTIDAD_PRECIO.includes(error.message)) {
+        resultadoOperacion.textContent = error.message;
+        resultadoOperacion.className = "alert alert-danger mt-0";
+      }
     }
   });
 
   confirmarOperacion.addEventListener("click", async () => {
     if (riesgoActual === null) return;
+
+    const requierePassword = !confirmacionPassword.classList.contains("d-none");
+    if (requierePassword && !passwordConfirmacion.value) {
+      resultadoOperacion.textContent = "Confirma tu contraseña para continuar con esta compra";
+      resultadoOperacion.className = "alert alert-danger mt-0";
+      passwordConfirmacion.focus();
+      return;
+    }
+
     try {
-      await enviarOperacion(`/api/portafolio/${tipoOperacion}`, {
+      const datosOperacion = {
         ticker: accionOperacion.value,
         cantidad: cantidadOperacion.value,
         riesgo_calculado: riesgoActual,
-      });
+      };
+      if (requierePassword) datosOperacion.password = passwordConfirmacion.value;
+
+      await enviarOperacion(`/api/portafolio/${tipoOperacion}`, datosOperacion);
       window.location.href = "/historial";
     } catch (error) {
       resultadoOperacion.textContent = error.message;

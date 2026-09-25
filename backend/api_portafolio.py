@@ -72,6 +72,7 @@ def comprar():
             datos.get("ticker"),
             datos.get("cantidad"),
             datos.get("riesgo_calculado"),
+            datos.get("password"),
         )
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
@@ -115,10 +116,13 @@ def analisis_portafolio():
     from backend.servicios.acciones import AccionServicio
     accion_servicio = AccionServicio()
     movimientos = servicio.listar_movimientos(usuario.id)
+    costo_promedio = servicio.costo_promedio_por_ticker(usuario.id)
     
     # Análisis de distribución de activos
     distribucion = {}
     volatilidades = {}
+    posiciones_detalle = []
+    capital_invertido = 0.0
     
     # Agrupar movimientos más recientes por ticker
     ultimos_movimientos = {}
@@ -135,6 +139,19 @@ def analisis_portafolio():
         precio = float(accion["precio_actual"])
         valor_posicion = cantidad * precio
         distribucion[ticker] = valor_posicion
+
+        precio_prom = float(costo_promedio.get(ticker, 0))
+        costo_posicion = cantidad * precio_prom
+        capital_invertido += costo_posicion
+        posiciones_detalle.append({
+            "ticker": ticker,
+            "nombre_empresa": posicion["nombre_empresa"],
+            "cantidad": posicion["cantidad"],
+            "precio_promedio": round(precio_prom, 2),
+            "precio_actual": precio,
+            "valor": round(valor_posicion, 2),
+            "ganancia_perdida": round(valor_posicion - costo_posicion, 2),
+        })
         
         # Usar el riesgo_nivel del movimiento más reciente de esta acción
         if ticker in ultimos_movimientos:
@@ -145,6 +162,7 @@ def analisis_portafolio():
             volatilidades[ticker] = "bajo"
     
     valor_total_posiciones = sum(distribucion.values())
+    ganancia_perdida = valor_total_posiciones - capital_invertido
     
     # Estadísticas de movimientos
     compras = [m for m in movimientos if m["tipo"] == "compra"]
@@ -153,6 +171,9 @@ def analisis_portafolio():
     return jsonify({
         "saldo_disponible": float(portafolio["saldo_virtual"]),
         "valor_total_posiciones": valor_total_posiciones,
+        "capital_invertido": round(capital_invertido, 2),
+        "ganancia_perdida": round(ganancia_perdida, 2),
+        "ganancia_perdida_porcentaje": round((ganancia_perdida / capital_invertido * 100), 2) if capital_invertido else 0,
         "distribucion_activos": {
             k: float(v) for k, v in distribucion.items()
         } if distribucion else {},
@@ -160,4 +181,5 @@ def analisis_portafolio():
         "cantidad_ventas": len(ventas),
         "volatilidades": volatilidades,
         "posiciones_count": len(portafolio.get("posiciones", [])),
+        "posiciones_detalle": posiciones_detalle,
     })

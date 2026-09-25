@@ -24,7 +24,7 @@ def test_registro_crea_usuario_portafolio_y_tokens(client, app):
     with app.app_context():
         usuario = db.session.query(Usuario).one()
         assert usuario.portafolio is not None
-        assert usuario.portafolio.saldo_virtual == 10000
+        assert usuario.portafolio.saldo_virtual == 50000
         assert usuario.password_hash != "Secreto12!"
 
 
@@ -62,7 +62,7 @@ def test_login_y_perfil_protegido(client):
 
     assert login.status_code == 200
     assert respuesta.status_code == 200
-    assert respuesta.get_json()["saldo_virtual"] == "10000.00"
+    assert respuesta.get_json()["saldo_virtual"] == "50000.00"
 
 
 def test_perfil_sin_token_rechaza_acceso(client):
@@ -139,7 +139,7 @@ def test_patch_perfil_actualiza_datos_del_usuario(client):
     cuerpo = respuesta.get_json()
     assert cuerpo["nombre"] == "Ana Updated"
     assert cuerpo["correo"] == "nuevo@example.com"
-    assert cuerpo["saldo_virtual"] == "10000.00"
+    assert cuerpo["saldo_virtual"] == "50000.00"
 
 
 def test_patch_perfil_rechaza_password_debil(client):
@@ -220,6 +220,103 @@ def test_login_limita_intentos_fallidos(client):
     assert respuesta.get_json() == {
         "error": "Demasiados intentos fallidos. Intenta nuevamente más tarde"
     }
+
+
+def test_login_limita_intentos_fallidos_por_ip(client):
+    """Verifica que se limita a 10 intentos fallidos por IP en 15 min"""
+    for i in range(10):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": f"correo_diferente_{i}@example.com", "password": "Incorrecta1!"},
+        )
+        assert respuesta.status_code == 401
+
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "otro@example.com", "password": "Incorrecta1!"},
+    )
+
+    assert respuesta.status_code == 429
+    assert "dirección IP" in respuesta.get_json()["error"]
+
+
+def test_rate_limiting_email_y_ip_son_independientes(client):
+    """Verifica que el límite por email (5) y por IP (10) son independientes"""
+    correo = "usuario@example.com"
+    
+    # Registrar usuario válido
+    client.post("/api/auth/registro", json=datos_registro(correo))
+    
+    # Hacer 5 intentos fallidos con el mismo correo (alcanza límite por email)
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 6to intento con el mismo correo debe ser 429
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
+    assert "intentos fallidos" in respuesta.get_json()["error"]
+    
+    # Pero puedo hacer intentos con otros correos desde la misma IP
+    # Hago 5 intentos más con correos diferentes (total 10 desde IP)
+    for i in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": f"otro{i}@example.com", "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 11vo intento desde la IP debe ser 429 (por IP)
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "otro_mas@example.com", "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
+    assert "dirección IP" in respuesta.get_json()["error"]
+
+
+def test_login_exitoso_limpia_contadores_email_e_ip(client):
+    """Verifica que login exitoso limpia ambos contadores"""
+    correo = "usuario_limpieza@example.com"
+    
+    # Registrar usuario
+    client.post("/api/auth/registro", json=datos_registro(correo))
+    
+    # Hacer 2 intentos fallidos
+    for _ in range(2):
+        client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+    
+    # Login exitoso
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "Secreto12!"},
+    )
+    assert respuesta.status_code == 200
+    
+    # Después del login exitoso, el contador debe estar limpio
+    # Debo poder hacer nuevamente 5 intentos fallidos antes de alcanzar límite
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 6to intento debe retornar 429 (límite por email)
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
 
 
 def test_recuperacion_no_revela_si_correo_existe(client, app):
@@ -325,7 +422,7 @@ def test_flujo_html_registro_perfil_y_logout(client):
 
     assert registro.status_code == 200
     assert b"Hola, Luis" in registro.data
-    assert b"10000.00" in registro.data
+    assert b"50000.00" in registro.data
 
     mercado = client.get("/mercado")
     assert b"AAPL" in mercado.data

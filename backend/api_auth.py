@@ -37,7 +37,8 @@ def login():
     if error:
         return error
     try:
-        resultado = servicio.login(datos.get("correo"), datos.get("password"))
+        ip_cliente = request.remote_addr
+        resultado = servicio.login(datos.get("correo"), datos.get("password"), ip_cliente)
     except ErrorNegocio as exc:
         return json_error(exc.mensaje, exc.codigo)
     return jsonify(resultado)

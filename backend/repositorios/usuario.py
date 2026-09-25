@@ -20,3 +20,6 @@ class UsuarioRepo:
         db.session.add(usuario)
         db.session.flush()
         return usuario
+
+    def eliminar(self, usuario: Usuario) -> None:
+        db.session.delete(usuario)

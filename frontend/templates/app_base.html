@@ -41,6 +41,12 @@
             <span class="app-nav-icon" aria-hidden="true">▤</span>
             <span class="app-nav-label">Análisis</span>
           </a>
+          {% if usuario_actual and usuario_actual.rol.value == 'administrador' %}
+          <a class="app-nav-link {{ 'activo' if seccion_activa == 'admin' else '' }}" href="{{ url_for('main.admin_usuarios') }}">
+            <span class="app-nav-icon" aria-hidden="true">⚙</span>
+            <span class="app-nav-label">Administración</span>
+          </a>
+          {% endif %}
         </nav>
         <div class="app-sidebar-footer">
           <button class="app-sidebar-link" type="button" disabled title="Próximamente">
@@ -52,9 +58,16 @@
         </div>
       </aside>
 
+      <div class="app-sidebar-backdrop" id="app-sidebar-backdrop"></div>
+
       <div class="app-main">
         <header class="app-topbar">
-          <p class="app-breadcrumb mb-0">{% block breadcrumb %}{% endblock %}</p>
+          <div class="d-flex align-items-center gap-2">
+            <button class="app-menu-toggle" id="btn-menu-movil" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="app-sidebar">
+              <span aria-hidden="true">☰</span>
+            </button>
+            <p class="app-breadcrumb mb-0">{% block breadcrumb %}{% endblock %}</p>
+          </div>
           <div class="dropdown app-user">
             <button class="app-user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
               <span class="app-avatar" aria-hidden="true">{{ (usuario_actual.nombre or "?")[:2]|upper }}</span>
@@ -94,6 +107,24 @@
         btnColapsar.addEventListener("click", () => {
           appShell.classList.toggle("app-shell-colapsado");
         });
+      }
+
+      const btnMenuMovil = document.getElementById("btn-menu-movil");
+      const sidebarBackdrop = document.getElementById("app-sidebar-backdrop");
+
+      function cerrarSidebarMovil() {
+        appShell.classList.remove("app-shell-sidebar-abierta");
+        if (btnMenuMovil) btnMenuMovil.setAttribute("aria-expanded", "false");
+      }
+
+      if (btnMenuMovil) {
+        btnMenuMovil.addEventListener("click", () => {
+          const abierta = appShell.classList.toggle("app-shell-sidebar-abierta");
+          btnMenuMovil.setAttribute("aria-expanded", abierta ? "true" : "false");
+        });
+      }
+      if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener("click", cerrarSidebarMovil);
       }
     </script>
     {% block scripts %}{% endblock %}

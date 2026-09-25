@@ -118,18 +118,32 @@ def perfil():
     usuario = current_user
     datos_portafolio = portafolio.obtener(int(get_jwt_identity()))
     movimientos = portafolio.listar_movimientos(int(get_jwt_identity()))
+    costo_promedio = portafolio.costo_promedio_por_ticker(int(get_jwt_identity()))
 
     valor_posiciones = 0
+    posiciones_con_detalle = []
     for posicion in datos_portafolio["posiciones"]:
         accion = acciones.obtener_por_ticker(posicion["ticker"])
-        if accion:
-            valor_posiciones += float(posicion["cantidad"]) * float(accion["precio_actual"])
+        precio_actual = float(accion["precio_actual"]) if accion else 0
+        cantidad = float(posicion["cantidad"])
+        valor_actual = cantidad * precio_actual
+        precio_prom = float(costo_promedio.get(posicion["ticker"], 0))
+        ganancia_perdida = valor_actual - (cantidad * precio_prom)
+        ganancia_porcentaje = (ganancia_perdida / (cantidad * precio_prom) * 100) if precio_prom else 0
+        valor_posiciones += valor_actual
+        posiciones_con_detalle.append({
+            **posicion,
+            "valor_actual": f"{valor_actual:,.2f}",
+            "ganancia_perdida": ganancia_perdida,
+            "ganancia_porcentaje": ganancia_porcentaje,
+        })
 
     return render_template(
         "inicio.html",
         seccion_activa="inicio",
         usuario_actual=usuario,
         datos_portafolio=datos_portafolio,
+        posiciones_con_detalle=posiciones_con_detalle,
         valor_posiciones=f"{valor_posiciones:,.2f}",
         total_compras=sum(1 for m in movimientos if m["tipo"] == "compra"),
         total_ventas=sum(1 for m in movimientos if m["tipo"] == "venta"),
@@ -204,8 +218,11 @@ def configuracion():
 def admin_usuarios():
     return render_template(
         "admin_usuarios.html",
+        seccion_activa="admin",
         usuario_actual=current_user,
         usuarios=usuarios.listar(),
+        estadisticas=usuarios.estadisticas(),
+        auditoria=portafolio.listar_movimientos_todos(limite=100),
     )
 
 

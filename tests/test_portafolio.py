@@ -50,7 +50,7 @@ def test_portafolio_devuelve_saldo_y_posiciones(client, app):
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.get_json()
-    assert cuerpo["saldo_virtual"] == "10000.00"
+    assert cuerpo["saldo_virtual"] == "50000.00"
     assert cuerpo["posiciones"] == [
         {
             "accion_id": 1,
@@ -94,16 +94,17 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
 def test_compra_actualiza_saldo_y_movimiento(client, app, monkeypatch):
     monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "compra@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "2")
 
     respuesta = client.post(
         "/api/portafolio/comprar",
         headers={"Authorization": f"Bearer {token}"},
-        json={"ticker": "AAPL", "cantidad": "2", "riesgo_calculado": "22.57"},
+        json={"ticker": "AAPL", "cantidad": "2", "riesgo_calculado": riesgo},
     )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.get_json()
-    assert cuerpo["saldo_virtual"] == "9571.60"
+    assert cuerpo["saldo_virtual"] == "49571.60"
     assert cuerpo["posiciones"][0]["ticker"] == "AAPL"
     assert cuerpo["posiciones"][0]["cantidad"] == "2.0000"
     assert cuerpo["movimientos"][0]["tipo"] == "compra"
@@ -128,15 +129,16 @@ def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
         )
         db.session.commit()
 
+    riesgo = _consultar_riesgo(client, token, "MSFT", "1.5000")
     respuesta = client.post(
         "/api/portafolio/vender",
         headers={"Authorization": f"Bearer {token}"},
-        json={"ticker": "MSFT", "cantidad": "1.5000", "riesgo_calculado": "21.84"},
+        json={"ticker": "MSFT", "cantidad": "1.5000", "riesgo_calculado": riesgo},
     )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.get_json()
-    assert cuerpo["saldo_virtual"] == "10640.12"
+    assert cuerpo["saldo_virtual"] == "50640.12"
     assert cuerpo["posiciones"][0]["cantidad"] == "1.5000"
     assert cuerpo["movimientos"][0]["tipo"] == "venta"
 
@@ -144,6 +146,7 @@ def test_venta_actualiza_saldo_y_movimiento(client, app, monkeypatch):
 def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeypatch):
     monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
     token = registrar_y_obtener_token(client, "riesgo_compra@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "2")
 
     respuesta = client.post(
         "/api/portafolio/comprar",
@@ -151,13 +154,13 @@ def test_compra_guarda_riesgo_calculado_si_viene_en_payload(client, app, monkeyp
         json={
             "ticker": "AAPL",
             "cantidad": "2",
-            "riesgo_calculado": "22.57",
+            "riesgo_calculado": riesgo,
         },
     )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.get_json()
-    assert cuerpo["movimientos"][0]["riesgo_calculado"] == "22.57"
+    assert cuerpo["movimientos"][0]["riesgo_calculado"] == riesgo
 
 
 def test_compra_requiere_riesgo_calculado(client, monkeypatch):
@@ -172,6 +175,74 @@ def test_compra_requiere_riesgo_calculado(client, monkeypatch):
 
     assert respuesta.status_code == 400
     assert "consultar el riesgo" in respuesta.get_json()["error"]
+
+
+def _consultar_riesgo(client, token, ticker, cantidad):
+    respuesta = client.post(
+        "/api/portafolio/movimientos/riesgo",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": ticker, "cantidad": cantidad},
+    )
+    return respuesta.get_json()["riesgo_calculado"]
+
+
+def test_compra_grande_sin_password_es_rechazada(client, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
+    token = registrar_y_obtener_token(client, "compra_grande_sin_pass@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "25")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "25", "riesgo_calculado": riesgo},
+    )
+
+    assert respuesta.status_code == 400
+    assert "contraseña" in respuesta.get_json()["error"]
+
+
+def test_compra_grande_con_password_incorrecto_es_rechazada(client, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
+    token = registrar_y_obtener_token(client, "compra_grande_pass_mal@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "25")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "25", "riesgo_calculado": riesgo, "password": "IncorrectaX1!"},
+    )
+
+    assert respuesta.status_code == 401
+    assert "contraseña" in respuesta.get_json()["error"]
+
+
+def test_compra_grande_con_password_correcto_se_ejecuta(client, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
+    token = registrar_y_obtener_token(client, "compra_grande_pass_ok@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "25")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "25", "riesgo_calculado": riesgo, "password": "Secreto12!"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["posiciones"][0]["cantidad"] == "25.0000"
+
+
+def test_compra_de_20_acciones_no_requiere_password(client, monkeypatch):
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
+    token = registrar_y_obtener_token(client, "compra_veinte@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "20")
+
+    respuesta = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "20", "riesgo_calculado": riesgo},
+    )
+
+    assert respuesta.status_code == 200
 
 
 def test_api_acciones_devuelve_catalogo_publico(client):

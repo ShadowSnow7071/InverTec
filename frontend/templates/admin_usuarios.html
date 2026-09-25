@@ -1,45 +1,236 @@
-{% extends "base.html" %}
+{% extends "app_base.html" %}
 
-{% block title %}Usuarios | InverTec{% endblock %}
+{% block title %}Administración | InverTec{% endblock %}
+{% block breadcrumb %}Administración{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <div>
-    <p class="eyebrow mb-1">Administración</p>
-    <h1 class="h3 mb-0">Usuarios</h1>
+<h1 class="h3 mb-1">Panel de administración</h1>
+<p class="text-muted mb-4">Estadísticas del sistema, gestión de usuarios y auditoría de movimientos</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Usuarios activos</p>
+      <p class="h4 mb-0">{{ estadisticas.usuarios_activos }} <span class="text-muted small">/ {{ estadisticas.usuarios_totales }}</span></p>
+      <p class="text-muted small mb-0">registrados en total</p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Operaciones totales</p>
+      <p class="h4 mb-0">{{ estadisticas.operaciones_totales }}</p>
+      <p class="text-muted small mb-0">compras y ventas simuladas</p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Saldo total en el sistema</p>
+      <p class="h4 mb-0">${{ estadisticas.saldo_total }}</p>
+      <p class="text-muted small mb-0">suma de todos los portafolios</p>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <p class="text-uppercase small fw-semibold text-muted mb-1">Cuentas bloqueadas</p>
+      <p class="h4 mb-0">{{ estadisticas.usuarios_totales - estadisticas.usuarios_activos }}</p>
+      <p class="text-muted small mb-0">sin acceso al login</p>
+    </div></div>
   </div>
 </div>
 
-<div class="card">
+<section class="card mb-4" aria-labelledby="gestion-usuarios-titulo">
   <div class="card-body">
+    <p class="eyebrow mb-1">Gestión de usuarios</p>
+    <h2 id="gestion-usuarios-titulo" class="h5 mb-3">Usuarios</h2>
     <div class="table-responsive">
-      <table class="table align-middle mb-0">
+      <table class="table align-middle mb-0" id="tabla-admin-usuarios">
         <thead>
           <tr>
             <th>ID</th>
             <th>Nombre</th>
             <th>Correo</th>
             <th>Rol</th>
+            <th>Estado</th>
             <th class="text-end">Saldo</th>
+            <th class="text-end">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for usuario in usuarios %}
-          <tr>
+          <tr data-usuario-id="{{ usuario.id }}">
             <td>{{ usuario.id }}</td>
             <td>{{ usuario.nombre }}</td>
             <td>{{ usuario.correo }}</td>
             <td>
-              <span class="badge text-bg-{{ 'primary' if usuario.rol == 'administrador' else 'secondary' }}">
-                {{ usuario.rol }}
+              {% if usuario.id == usuario_actual.id %}
+              <span class="badge text-bg-{{ 'primary' if usuario.rol == 'administrador' else 'secondary' }}">{{ usuario.rol|capitalize }}</span>
+              {% else %}
+              <select class="form-select form-select-sm selector-rol" style="width: auto;" data-usuario-id="{{ usuario.id }}">
+                <option value="inversionista" {{ 'selected' if usuario.rol == 'inversionista' }}>Inversionista</option>
+                <option value="administrador" {{ 'selected' if usuario.rol == 'administrador' }}>Administrador</option>
+              </select>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge text-bg-{{ 'success' if usuario.activo else 'danger' }}" data-badge-estado>
+                {{ 'Activo' if usuario.activo else 'Bloqueado' }}
               </span>
             </td>
             <td class="text-end">${{ usuario.saldo_virtual }}</td>
+            <td class="text-end">
+              {% if usuario.id == usuario_actual.id %}
+              <span class="text-muted small">Tu cuenta</span>
+              {% else %}
+              <button
+                class="btn btn-sm btn-outline-secondary btn-toggle-estado"
+                type="button"
+                data-usuario-id="{{ usuario.id }}"
+                data-activo="{{ usuario.activo|lower }}"
+              >{{ 'Bloquear' if usuario.activo else 'Desbloquear' }}</button>
+              <button class="btn btn-sm btn-outline-danger btn-eliminar-usuario" type="button" data-usuario-id="{{ usuario.id }}">Eliminar</button>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    <div class="alert mt-3 d-none" id="admin-resultado" role="status"></div>
   </div>
-</div>
+</section>
+
+<section class="card" aria-labelledby="auditoria-titulo">
+  <div class="card-body">
+    <p class="eyebrow mb-1">Trazabilidad</p>
+    <h2 id="auditoria-titulo" class="h5 mb-3">Auditoría de movimientos</h2>
+    {% if auditoria %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Usuario</th>
+            <th>Tipo</th>
+            <th>Ticker</th>
+            <th class="text-end">Cantidad</th>
+            <th class="text-end">Riesgo</th>
+            <th class="text-end">Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for movimiento in auditoria %}
+          <tr>
+            <td class="text-muted">{{ movimiento.fecha[:16].replace('T', ' ') if movimiento.fecha else '—' }}</td>
+            <td>
+              <div>{{ movimiento.usuario_nombre }}</div>
+              <div class="text-muted small">{{ movimiento.usuario_correo }}</div>
+            </td>
+            <td><span class="badge text-bg-{{ 'success' if movimiento.tipo == 'compra' else 'danger' }}">{{ movimiento.tipo|capitalize }}</span></td>
+            <td><span class="badge text-bg-secondary">{{ movimiento.ticker }}</span></td>
+            <td class="text-end">{{ movimiento.cantidad }}</td>
+            <td class="text-end">
+              {% if movimiento.riesgo_calculado is not none %}
+              <span class="badge text-bg-{{ 'success' if movimiento.riesgo_nivel == 'bajo' else 'warning' if movimiento.riesgo_nivel == 'medio' else 'danger' }}">
+                {{ movimiento.riesgo_nivel|capitalize }} · {{ movimiento.riesgo_calculado }}
+              </span>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td class="text-end">USD {{ movimiento.precio_unitario }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted small mt-2 mb-0">Se muestran las últimas {{ auditoria|length }} operaciones del sistema.</p>
+    {% else %}
+    <p class="text-muted mb-0">Todavía no hay movimientos registrados en el sistema.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const adminResultado = document.getElementById("admin-resultado");
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function mostrarAdminResultado(mensaje, tipo) {
+    adminResultado.textContent = mensaje;
+    adminResultado.className = `alert alert-${tipo} mt-3`;
+    adminResultado.classList.remove("d-none");
+    adminResultado.scrollIntoView({behavior: "smooth", block: "nearest"});
+  }
+
+  async function llamadaAdmin(url, metodo, cuerpo) {
+    const respuesta = await fetch(url, {
+      method: metodo,
+      headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+    if (respuesta.status === 204) return null;
+    const datos = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) {
+      throw new Error(datos.error || "No fue posible completar la acción");
+    }
+    return datos;
+  }
+
+  document.querySelectorAll(".selector-rol").forEach((selector) => {
+    const rolPrevio = selector.value;
+    selector.addEventListener("change", async () => {
+      const nuevoRol = selector.value;
+      if (!confirm(`¿Cambiar el rol de este usuario a "${nuevoRol}"?`)) {
+        selector.value = rolPrevio;
+        return;
+      }
+      try {
+        await llamadaAdmin(`/api/usuarios/${selector.dataset.usuarioId}/rol`, "PATCH", {rol: nuevoRol});
+        mostrarAdminResultado("Rol actualizado correctamente.", "success");
+      } catch (error) {
+        selector.value = rolPrevio;
+        mostrarAdminResultado(error.message, "danger");
+      }
+    });
+  });
+
+  document.querySelectorAll(".btn-toggle-estado").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const activoActual = boton.dataset.activo === "true";
+      const nuevoEstado = !activoActual;
+      const accion = nuevoEstado ? "desbloquear" : "bloquear";
+      if (!confirm(`¿Seguro que deseas ${accion} a este usuario?`)) return;
+      try {
+        await llamadaAdmin(`/api/usuarios/${boton.dataset.usuarioId}/estado`, "PATCH", {activo: nuevoEstado});
+        mostrarAdminResultado(`Usuario ${nuevoEstado ? "desbloqueado" : "bloqueado"} correctamente.`, "success");
+        const fila = boton.closest("tr");
+        const insignia = fila.querySelector("[data-badge-estado]");
+        insignia.textContent = nuevoEstado ? "Activo" : "Bloqueado";
+        insignia.className = `badge text-bg-${nuevoEstado ? "success" : "danger"}`;
+        boton.dataset.activo = String(nuevoEstado);
+        boton.textContent = nuevoEstado ? "Bloquear" : "Desbloquear";
+      } catch (error) {
+        mostrarAdminResultado(error.message, "danger");
+      }
+    });
+  });
+
+  document.querySelectorAll(".btn-eliminar-usuario").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar esta cuenta de forma permanente? Se perderá su portafolio e historial.")) return;
+      try {
+        await llamadaAdmin(`/api/usuarios/${boton.dataset.usuarioId}`, "DELETE");
+        boton.closest("tr").remove();
+        mostrarAdminResultado("Usuario eliminado correctamente.", "success");
+      } catch (error) {
+        mostrarAdminResultado(error.message, "danger");
+      }
+    });
+  });
+</script>
 {% endblock %}

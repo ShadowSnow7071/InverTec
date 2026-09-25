@@ -2,27 +2,36 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import joinedload
+from werkzeug.security import check_password_hash
 
 from backend.conexion import db
-from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento
+from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento, Usuario
 from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import ErrorNegocio
 
 
 class PortafolioServicio:
+    # A partir de esta cantidad de acciones, comprar exige confirmar la
+    # contraseña de la cuenta antes de ejecutar la operación.
+    UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD = Decimal("20")
+
     def obtener(self, usuario_id: int):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             return None
         return self._estado_portafolio(portafolio)
 
-    def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None):
+    def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None, password=None):
         portafolio = self._obtener_portafolio(usuario_id)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
         accion = self._obtener_o_crear_accion(ticker)
         cantidad_decimal = self._parse_decimal(cantidad, "cantidad")
+
+        if cantidad_decimal > self.UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD:
+            self._validar_password_confirmacion(usuario_id, password)
+
         precio_decimal = self._precio_de_mercado(accion.ticker)
         riesgo_decimal = self._validar_riesgo(
             accion.ticker, cantidad_decimal, portafolio.saldo_virtual, riesgo_calculado
@@ -90,6 +99,19 @@ class PortafolioServicio:
         ).all()
         return [self._movimiento_dict(movimiento) for movimiento in movimientos]
 
+    def listar_movimientos_todos(self, limite: int = 100):
+        movimientos = db.session.scalars(
+            select(Movimiento)
+            .join(Movimiento.portafolio)
+            .options(
+                joinedload(Movimiento.accion),
+                joinedload(Movimiento.portafolio).joinedload(Portafolio.usuario),
+            )
+            .order_by(Movimiento.fecha.desc(), Movimiento.id.desc())
+            .limit(limite)
+        ).all()
+        return [self._movimiento_dict_auditoria(movimiento) for movimiento in movimientos]
+
     def obtener_movimiento(self, usuario_id: int, movimiento_id: int):
         movimiento = db.session.scalar(
             select(Movimiento)
@@ -101,6 +123,41 @@ class PortafolioServicio:
         if movimiento is None:
             raise ErrorNegocio("Movimiento no encontrado", 404)
         return self._movimiento_dict(movimiento)
+
+    def costo_promedio_por_ticker(self, usuario_id: int):
+        portafolio = self._obtener_portafolio(usuario_id)
+        if portafolio is None:
+            return {}
+        return self._costo_promedio(portafolio.id)
+
+    @staticmethod
+    def _costo_promedio(portafolio_id):
+        # Costo promedio ponderado: cada compra suma cantidad*precio al costo
+        # acumulado; cada venta reduce el costo acumulado proporcionalmente
+        # al promedio vigente en ese momento (no afecta el promedio en sí).
+        filas = db.session.execute(
+            select(Movimiento.accion_id, Accion.ticker, Movimiento.tipo, Movimiento.cantidad, Movimiento.precio_unitario)
+            .join(Accion, Accion.id == Movimiento.accion_id)
+            .where(Movimiento.portafolio_id == portafolio_id)
+            .order_by(Movimiento.fecha.asc(), Movimiento.id.asc())
+        )
+        acumulado = {}
+        for accion_id, ticker, tipo, cantidad, precio in filas:
+            cantidad_acum, costo_acum = acumulado.get(ticker, (Decimal("0"), Decimal("0")))
+            if tipo.value == "compra":
+                costo_acum += cantidad * precio
+                cantidad_acum += cantidad
+            else:
+                if cantidad_acum > 0:
+                    costo_acum -= (costo_acum / cantidad_acum) * cantidad
+                cantidad_acum -= cantidad
+            acumulado[ticker] = (cantidad_acum, costo_acum)
+
+        return {
+            ticker: (costo_acum / cantidad_acum)
+            for ticker, (cantidad_acum, costo_acum) in acumulado.items()
+            if cantidad_acum > 0
+        }
 
     @staticmethod
     def _obtener_portafolio(usuario_id: int):
@@ -160,6 +217,18 @@ class PortafolioServicio:
         if not decimal_valor.is_finite():
             raise ErrorNegocio(f"El campo {nombre} no es válido")
         return decimal_valor
+
+    @classmethod
+    def _validar_password_confirmacion(cls, usuario_id, password):
+        if not password:
+            raise ErrorNegocio(
+                "Debes confirmar tu contraseña para comprar más de "
+                f"{cls.UMBRAL_CANTIDAD_CONFIRMACION_PASSWORD} acciones",
+                400,
+            )
+        usuario = db.session.scalar(select(Usuario).where(Usuario.id == usuario_id))
+        if usuario is None or not check_password_hash(usuario.password_hash, password):
+            raise ErrorNegocio("La contraseña no es correcta", 401)
 
     @staticmethod
     def _parse_riesgo(valor):
@@ -239,6 +308,13 @@ class PortafolioServicio:
             "riesgo_nivel": PortafolioServicio._nivel_riesgo(riesgo),
             "fecha": movimiento.fecha.isoformat() if movimiento.fecha else None,
         }
+
+    @staticmethod
+    def _movimiento_dict_auditoria(movimiento):
+        datos = PortafolioServicio._movimiento_dict(movimiento)
+        datos["usuario_nombre"] = movimiento.portafolio.usuario.nombre
+        datos["usuario_correo"] = movimiento.portafolio.usuario.correo
+        return datos
 
     @staticmethod
     def _nivel_riesgo(riesgo):

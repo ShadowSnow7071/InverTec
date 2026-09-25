@@ -37,8 +37,8 @@
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
             <td class="text-end">
               {% if accion.cambio_porcentaje is not none %}
-              <span class="{{ 'text-success' if accion.cambio_porcentaje|float >= 0 else 'text-danger' }}">
-                {{ '↑' if accion.cambio_porcentaje|float >= 0 else '↓' }} {{ accion.cambio_porcentaje|float|abs }}%
+              <span class="{{ 'text-success' if accion.cambio_porcentaje|float >= 0 else 'text-danger' }}" title="{{ 'Dato real' if accion.cambio_real else 'Referencia simulada, sin conexión a datos de mercado' }}">
+                {{ '↑' if accion.cambio_porcentaje|float >= 0 else '↓' }} {{ accion.cambio_porcentaje|float|abs }}%{{ '' if accion.cambio_real else '*' }}
               </span>
               {% else %}
               —
@@ -50,8 +50,8 @@
         </tbody>
       </table>
     </div>
-    {% if catalogo and not catalogo[0].cambio_real %}
-    <p class="text-muted small mt-2 mb-0">El % de cambio es una referencia simulada (no hay conexión activa con datos de mercado en este momento).</p>
+    {% if catalogo|selectattr('cambio_real', 'equalto', false)|list %}
+    <p class="text-muted small mt-2 mb-0">Las filas marcadas con * usan un % de cambio simulado (sin conexión a datos de mercado en ese momento, por ejemplo por límite de peticiones).</p>
     {% endif %}
     <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
   </div>
