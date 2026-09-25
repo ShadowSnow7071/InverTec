@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.conexion import db
@@ -38,9 +38,12 @@ class Usuario(db.Model):
     fecha_registro: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
 
     portafolio: Mapped["Portafolio | None"] = relationship(
-        back_populates="usuario", uselist=False
+        back_populates="usuario", uselist=False, cascade="all, delete-orphan"
     )
     tokens_recuperacion: Mapped[list["TokenRecuperacion"]] = relationship(
         back_populates="usuario", cascade="all, delete-orphan"
@@ -82,7 +85,9 @@ class Portafolio(db.Model):
     )
 
     usuario: Mapped[Usuario] = relationship(back_populates="portafolio")
-    movimientos: Mapped[list["Movimiento"]] = relationship(back_populates="portafolio")
+    movimientos: Mapped[list["Movimiento"]] = relationship(
+        back_populates="portafolio", cascade="all, delete-orphan"
+    )
 
 
 class Accion(db.Model):

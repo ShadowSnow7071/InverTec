@@ -11,6 +11,11 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 - `GET /api/usuarios/me` — perfil del usuario autenticado
 - `PATCH /api/usuarios/me` — actualiza datos del propio perfil
 - `GET /api/usuarios` — lista todos los usuarios (solo administrador)
+- `GET /api/usuarios/estadisticas` — estadísticas del sistema para el dashboard admin: usuarios totales, usuarios activos, operaciones totales, saldo total sumado de todos los portafolios (solo administrador)
+- `GET /api/usuarios/auditoria` — últimas 100 operaciones (compras/ventas) de todos los usuarios, con nombre y correo del dueño de cada movimiento (solo administrador)
+- `PATCH /api/usuarios/{id}/estado` — bloquea o desbloquea una cuenta (requiere `activo: bool`); una cuenta bloqueada no puede iniciar sesión hasta ser desbloqueada. Un administrador no puede bloquear su propia cuenta (solo administrador)
+- `PATCH /api/usuarios/{id}/rol` — cambia el rol de un usuario (requiere `rol: "inversionista" | "administrador"`). Un administrador no puede cambiar su propio rol, para evitar quedarse sin acceso al panel (solo administrador)
+- `DELETE /api/usuarios/{id}` — elimina la cuenta de forma permanente, junto con su portafolio e historial de movimientos (cascada). Un administrador no puede eliminar su propia cuenta (solo administrador)
 
 ## Portafolio y movimientos
 - `GET /api/portafolio` — devuelve el portafolio del usuario autenticado

@@ -19,7 +19,9 @@
         <div class="ms-auto">
           {% if usuario_actual %}
           <a class="btn btn-light btn-sm me-2" href="{{ url_for('main.perfil') }}">Mi portafolio</a>
+          {% if request.endpoint != 'main.configuracion' %}
           <a class="btn btn-light btn-sm me-2" href="{{ url_for('main.configuracion') }}">Configuración</a>
+          {% endif %}
           <form class="d-inline" method="post" action="{{ url_for('main.logout') }}">
             <button class="btn btn-outline-light btn-sm" type="submit">Salir</button>
           </form>

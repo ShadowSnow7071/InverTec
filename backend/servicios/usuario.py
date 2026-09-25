@@ -1,7 +1,8 @@
+from sqlalchemy import func, select
 from werkzeug.security import generate_password_hash
 
 from backend.conexion import db
-from backend.modelos import Usuario
+from backend.modelos import Movimiento, Portafolio, RolUsuario, Usuario
 from backend.repositorios.usuario import UsuarioRepo
 from backend.serializar import usuario_publico
 from backend.servicios.auth import AuthServicio, ErrorNegocio
@@ -47,3 +48,55 @@ class UsuarioServicio:
 
     def listar(self) -> list[dict]:
         return [usuario_publico(u) for u in self.usuarios.listar()]
+
+    def estadisticas(self) -> dict:
+        usuarios_totales = db.session.scalar(select(func.count(Usuario.id))) or 0
+        usuarios_activos = (
+            db.session.scalar(
+                select(func.count(Usuario.id)).where(Usuario.activo.is_(True))
+            )
+            or 0
+        )
+        operaciones_totales = db.session.scalar(select(func.count(Movimiento.id))) or 0
+        saldo_total = db.session.scalar(
+            select(func.coalesce(func.sum(Portafolio.saldo_virtual), 0))
+        )
+        return {
+            "usuarios_totales": usuarios_totales,
+            "usuarios_activos": usuarios_activos,
+            "operaciones_totales": operaciones_totales,
+            "saldo_total": str(saldo_total),
+        }
+
+    def cambiar_estado(self, usuario_id: int, activo: bool, admin: Usuario) -> dict:
+        if usuario_id == admin.id:
+            raise ErrorNegocio("No puedes bloquear tu propia cuenta")
+        usuario = self.usuarios.por_id(usuario_id)
+        if usuario is None:
+            raise ErrorNegocio("Usuario no encontrado", 404)
+        usuario.activo = activo
+        db.session.commit()
+        return usuario_publico(usuario)
+
+    def cambiar_rol(self, usuario_id: int, nuevo_rol: str, admin: Usuario) -> dict:
+        if usuario_id == admin.id:
+            raise ErrorNegocio("No puedes cambiar tu propio rol")
+        try:
+            rol = RolUsuario(nuevo_rol)
+        except ValueError:
+            raise ErrorNegocio("Rol inválido")
+        usuario = self.usuarios.por_id(usuario_id)
+        if usuario is None:
+            raise ErrorNegocio("Usuario no encontrado", 404)
+        usuario.rol = rol
+        db.session.commit()
+        return usuario_publico(usuario)
+
+    def eliminar(self, usuario_id: int, admin: Usuario) -> None:
+        if usuario_id == admin.id:
+            raise ErrorNegocio("No puedes eliminar tu propia cuenta")
+        usuario = self.usuarios.por_id(usuario_id)
+        if usuario is None:
+            raise ErrorNegocio("Usuario no encontrado", 404)
+        self.usuarios.eliminar(usuario)
+        db.session.commit()

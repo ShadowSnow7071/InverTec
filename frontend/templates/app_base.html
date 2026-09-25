@@ -41,6 +41,12 @@
             <span class="app-nav-icon" aria-hidden="true">▤</span>
             <span class="app-nav-label">Análisis</span>
           </a>
+          {% if usuario_actual and usuario_actual.rol.value == 'administrador' %}
+          <a class="app-nav-link {{ 'activo' if seccion_activa == 'admin' else '' }}" href="{{ url_for('main.admin_usuarios') }}">
+            <span class="app-nav-icon" aria-hidden="true">⚙</span>
+            <span class="app-nav-label">Administración</span>
+          </a>
+          {% endif %}
         </nav>
         <div class="app-sidebar-footer">
           <button class="app-sidebar-link" type="button" disabled title="Próximamente">

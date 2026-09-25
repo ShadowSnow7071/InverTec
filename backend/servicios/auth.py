@@ -99,6 +99,10 @@ class AuthServicio:
         self._intentos_login.pop(correo, None)
         if ip_cliente:
             self._intentos_login_ip.pop(ip_cliente, None)
+
+        if not usuario.activo:
+            raise ErrorNegocio("Tu cuenta ha sido bloqueada, contacta al administrador", 403)
+
         return self._respuesta_con_tokens(usuario)
 
     def solicitar_recuperacion(self, correo, base_url, api_key, from_email):

@@ -99,6 +99,19 @@ class PortafolioServicio:
         ).all()
         return [self._movimiento_dict(movimiento) for movimiento in movimientos]
 
+    def listar_movimientos_todos(self, limite: int = 100):
+        movimientos = db.session.scalars(
+            select(Movimiento)
+            .join(Movimiento.portafolio)
+            .options(
+                joinedload(Movimiento.accion),
+                joinedload(Movimiento.portafolio).joinedload(Portafolio.usuario),
+            )
+            .order_by(Movimiento.fecha.desc(), Movimiento.id.desc())
+            .limit(limite)
+        ).all()
+        return [self._movimiento_dict_auditoria(movimiento) for movimiento in movimientos]
+
     def obtener_movimiento(self, usuario_id: int, movimiento_id: int):
         movimiento = db.session.scalar(
             select(Movimiento)
@@ -295,6 +308,13 @@ class PortafolioServicio:
             "riesgo_nivel": PortafolioServicio._nivel_riesgo(riesgo),
             "fecha": movimiento.fecha.isoformat() if movimiento.fecha else None,
         }
+
+    @staticmethod
+    def _movimiento_dict_auditoria(movimiento):
+        datos = PortafolioServicio._movimiento_dict(movimiento)
+        datos["usuario_nombre"] = movimiento.portafolio.usuario.nombre
+        datos["usuario_correo"] = movimiento.portafolio.usuario.correo
+        return datos
 
     @staticmethod
     def _nivel_riesgo(riesgo):

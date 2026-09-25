@@ -218,8 +218,11 @@ def configuracion():
 def admin_usuarios():
     return render_template(
         "admin_usuarios.html",
+        seccion_activa="admin",
         usuario_actual=current_user,
         usuarios=usuarios.listar(),
+        estadisticas=usuarios.estadisticas(),
+        auditoria=portafolio.listar_movimientos_todos(limite=100),
     )
 
 
