@@ -28,6 +28,10 @@ class AuthServicio:
     _max_intentos_login = 5
     _ventana_login_segundos = 900
     _intentos_login = {}
+    
+    _max_intentos_login_ip = 10
+    _ventana_login_ip_segundos = 900
+    _intentos_login_ip = {}
 
     @staticmethod
     def _ahora_utc():
@@ -53,9 +57,11 @@ class AuthServicio:
         db.session.commit()
         return self._respuesta_con_tokens(usuario)
 
-    def login(self, correo, password):
+    def login(self, correo, password, ip_cliente=None):
         correo = (correo or "").strip().lower()
         ahora = time.monotonic()
+        
+        # Verificar límite por email
         intentos = [
             intento
             for intento in self._intentos_login.get(correo, [])
@@ -66,14 +72,33 @@ class AuthServicio:
             raise ErrorNegocio(
                 "Demasiados intentos fallidos. Intenta nuevamente más tarde", 429
             )
+        
+        # Verificar límite por IP
+        intentos_ip = []
+        if ip_cliente:
+            intentos_ip = [
+                intento
+                for intento in self._intentos_login_ip.get(ip_cliente, [])
+                if ahora - intento < self._ventana_login_ip_segundos
+            ]
+            if len(intentos_ip) >= self._max_intentos_login_ip:
+                self._intentos_login_ip[ip_cliente] = intentos_ip
+                raise ErrorNegocio(
+                    "Demasiados intentos fallidos desde tu dirección IP. Intenta nuevamente más tarde", 429
+                )
 
         usuario = db.session.scalar(select(Usuario).where(Usuario.correo == correo))
         if not usuario or not password or not check_password_hash(usuario.password_hash, password):
             intentos.append(ahora)
             self._intentos_login[correo] = intentos
+            if ip_cliente:
+                intentos_ip.append(ahora)
+                self._intentos_login_ip[ip_cliente] = intentos_ip
             raise ErrorNegocio("Correo o contraseña incorrectos", 401)
 
         self._intentos_login.pop(correo, None)
+        if ip_cliente:
+            self._intentos_login_ip.pop(ip_cliente, None)
         return self._respuesta_con_tokens(usuario)
 
     def solicitar_recuperacion(self, correo, base_url, api_key, from_email):
