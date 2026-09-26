@@ -70,6 +70,7 @@
       </div>
 
       <div class="alert alert-danger mb-3 d-none" id="error-cantidad-precio" role="alert">La cantidad y el precio deben ser mayores a cero</div>
+      <div class="alert alert-danger mb-3 d-none" id="error-saldo-insuficiente" role="alert">Saldo insuficiente para esta compra</div>
 
       <div class="d-flex justify-content-between align-items-center p-3 mb-3" style="background: var(--surface); border-radius: 10px;">
         <span class="text-muted">Costo total estimado</span>
@@ -124,6 +125,7 @@
   const precioOperacion = document.getElementById("precio-operacion");
   const costoTotal = document.getElementById("costo-total");
   const errorCantidadPrecio = document.getElementById("error-cantidad-precio");
+  const errorSaldoInsuficiente = document.getElementById("error-saldo-insuficiente");
   const riesgoResultado = document.getElementById("riesgo-resultado");
   const resultadoOperacion = document.getElementById("resultado-operacion");
   const consultarRiesgo = document.getElementById("consultar-riesgo");
@@ -135,6 +137,7 @@
 
   let tipoOperacion = "{{ operacion_inicial }}" === "vender" ? "vender" : "comprar";
   let riesgoActual = null;
+  const saldoVirtual = parseFloat("{{ saldo_virtual or '0' }}");
 
   function tokenCsrf() {
     const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
@@ -166,6 +169,21 @@
     const cantidad = parseFloat(cantidadOperacion.value) || 0;
     const precio = parseFloat(precioOperacion.value) || 0;
     costoTotal.textContent = `USD ${(cantidad * precio).toFixed(2)}`;
+    validarSaldoSuficiente();
+  }
+
+  function saldoAlcanza() {
+    if (tipoOperacion !== "comprar") return true; // vender no consume saldo
+    const cantidad = parseFloat(cantidadOperacion.value) || 0;
+    const precio = parseFloat(precioOperacion.value) || 0;
+    return cantidad * precio <= saldoVirtual;
+  }
+
+  function validarSaldoSuficiente() {
+    const alcanza = saldoAlcanza();
+    errorSaldoInsuficiente.classList.toggle("d-none", alcanza);
+    document.getElementById("ir-paso-3").disabled = !alcanza;
+    return alcanza;
   }
 
   function cantidadPrecioValidos() {
@@ -177,6 +195,7 @@
   function validarCantidadPrecio() {
     const valido = cantidadPrecioValidos();
     errorCantidadPrecio.classList.toggle("d-none", valido);
+    validarSaldoSuficiente();
     return valido;
   }
 
@@ -220,7 +239,7 @@
   document.getElementById("volver-paso-1").addEventListener("click", () => irAPaso(1));
 
   document.getElementById("ir-paso-3").addEventListener("click", () => {
-    if (!validarCantidadPrecio()) {
+    if (!validarCantidadPrecio() || !saldoAlcanza()) {
       cantidadOperacion.focus();
       return;
     }

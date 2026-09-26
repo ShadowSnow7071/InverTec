@@ -54,6 +54,11 @@
     <p class="text-muted small mt-2 mb-0">Las filas marcadas con * usan un % de cambio simulado (sin conexión a datos de mercado en ese momento, por ejemplo por límite de peticiones).</p>
     {% endif %}
     <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
+    <nav class="d-none d-flex align-items-center justify-content-between mt-3" id="paginacion-mercado" aria-label="Paginación de acciones">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="pagina-anterior">‹ Anterior</button>
+      <span class="text-muted small" id="pagina-indicador"></span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="pagina-siguiente">Siguiente ›</button>
+    </nav>
   </div>
 
   <div class="col-lg-4">
@@ -71,19 +76,58 @@
   const buscarAcciones = document.getElementById("buscar-acciones");
   const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   const detalleAccion = document.getElementById("detalle-accion");
+  const paginacionMercado = document.getElementById("paginacion-mercado");
+  const paginaIndicador = document.getElementById("pagina-indicador");
+  const botonPaginaAnterior = document.getElementById("pagina-anterior");
+  const botonPaginaSiguiente = document.getElementById("pagina-siguiente");
+  const FILAS_POR_PAGINA = 6;
+  let paginaActual = 1;
+  let coincidenciasActuales = [];
 
-  function filtrarMercado() {
+  function calcularCoincidencias() {
     const consulta = buscarAcciones.value.trim().toLowerCase();
     const filas = [...document.querySelectorAll("#tabla-mercado tbody tr")];
-    const coincidencias = filas.filter((fila) => {
+    return filas.filter((fila) => {
       const texto = `${fila.dataset.ticker} ${fila.dataset.nombre}`.toLowerCase();
       return texto.includes(consulta);
     });
-    filas.forEach((fila) => fila.classList.add("d-none"));
-    coincidencias.forEach((fila) => fila.classList.remove("d-none"));
-    sinResultadosMercado.classList.toggle("d-none", coincidencias.length > 0);
   }
+
+  function renderizarPagina() {
+    const totalPaginas = Math.max(1, Math.ceil(coincidenciasActuales.length / FILAS_POR_PAGINA));
+    paginaActual = Math.min(Math.max(paginaActual, 1), totalPaginas);
+    const inicio = (paginaActual - 1) * FILAS_POR_PAGINA;
+    const visiblesEnPagina = coincidenciasActuales.slice(inicio, inicio + FILAS_POR_PAGINA);
+
+    document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => fila.classList.add("d-none"));
+    visiblesEnPagina.forEach((fila) => fila.classList.remove("d-none"));
+
+    const necesitaPaginacion = coincidenciasActuales.length > FILAS_POR_PAGINA;
+    paginacionMercado.classList.toggle("d-none", !necesitaPaginacion);
+    if (necesitaPaginacion) {
+      paginaIndicador.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+      botonPaginaAnterior.disabled = paginaActual === 1;
+      botonPaginaSiguiente.disabled = paginaActual === totalPaginas;
+    }
+  }
+
+  function filtrarMercado() {
+    coincidenciasActuales = calcularCoincidencias();
+    paginaActual = 1;
+    sinResultadosMercado.classList.toggle("d-none", coincidenciasActuales.length > 0);
+    renderizarPagina();
+  }
+
   buscarAcciones.addEventListener("input", filtrarMercado);
+  botonPaginaAnterior.addEventListener("click", () => {
+    paginaActual -= 1;
+    renderizarPagina();
+  });
+  botonPaginaSiguiente.addEventListener("click", () => {
+    paginaActual += 1;
+    renderizarPagina();
+  });
+  filtrarMercado();
 
   function nivelDeVolatilidad(valor) {
     if (valor >= 35) return {texto: "Alto", clase: "danger"};

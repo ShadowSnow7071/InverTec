@@ -183,6 +183,7 @@ def historial():
 def simular():
     usuario = current_user
     catalogo = acciones.listar_catalogo(precios_reales=False)
+    saldo_virtual = portafolio.obtener_saldo(int(get_jwt_identity()))
     return render_template(
         "simular.html",
         seccion_activa="simular",
@@ -190,6 +191,7 @@ def simular():
         catalogo=catalogo,
         ticker_inicial=request.args.get("ticker", "").upper(),
         operacion_inicial=request.args.get("operacion", "comprar"),
+        saldo_virtual=saldo_virtual,
     )
 
 

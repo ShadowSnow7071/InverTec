@@ -448,3 +448,23 @@ def test_comprar_y_vender_bloquean_la_fila_del_portafolio(client, app, monkeypat
     )
 
     assert llamadas == [True, True]
+
+def test_obtener_saldo_devuelve_el_saldo_inicial(client, app):
+    from backend.servicios.portafolio import PortafolioServicio
+
+    registrar_y_obtener_token(client, "saldo_directo@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        saldo = PortafolioServicio().obtener_saldo(usuario.id)
+
+    assert saldo is not None
+    assert float(saldo) > 0
+
+
+def test_obtener_saldo_de_usuario_sin_portafolio_es_none(app):
+    from backend.servicios.portafolio import PortafolioServicio
+
+    with app.app_context():
+        saldo = PortafolioServicio().obtener_saldo(999999)
+
+    assert saldo is None    

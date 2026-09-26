@@ -21,6 +21,13 @@ class PortafolioServicio:
             return None
         return self._estado_portafolio(portafolio)
 
+    def obtener_saldo(self, usuario_id: int):
+       
+        portafolio = self._obtener_portafolio(usuario_id)
+        if portafolio is None:
+            return None
+        return str(portafolio.saldo_virtual)
+
     def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None, password=None):
         portafolio = self._obtener_portafolio(usuario_id, bloquear=True)
         if portafolio is None:
