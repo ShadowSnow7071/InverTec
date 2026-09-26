@@ -414,3 +414,37 @@ def test_portafolio_requiere_autenticacion(client):
 
     assert respuesta.status_code == 401
     assert respuesta.get_json() == {"error": "Token requerido"}
+
+
+def test_comprar_y_vender_bloquean_la_fila_del_portafolio(client, app, monkeypatch):
+    
+    from backend.servicios import portafolio as modulo_portafolio
+
+    monkeypatch.setattr("backend.servicios.acciones.AccionServicio._cotizacion_externa", lambda _: None)
+    token = registrar_y_obtener_token(client, "concurrencia@example.com")
+
+    llamadas = []
+    original = modulo_portafolio.PortafolioServicio._obtener_portafolio
+
+    def espia(usuario_id, bloquear=False):
+        llamadas.append(bloquear)
+        return original(usuario_id, bloquear=bloquear)
+
+    monkeypatch.setattr(
+        modulo_portafolio.PortafolioServicio, "_obtener_portafolio", staticmethod(espia)
+    )
+
+    riesgo_compra = _consultar_riesgo(client, token, "GOOGL", "1")
+    client.post(
+        "/api/portafolio/comprar",
+        json={"ticker": "GOOGL", "cantidad": "1", "riesgo_calculado": riesgo_compra},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    riesgo_venta = _consultar_riesgo(client, token, "GOOGL", "1")
+    client.post(
+        "/api/portafolio/vender",
+        json={"ticker": "GOOGL", "cantidad": "1", "riesgo_calculado": riesgo_venta},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert llamadas == [True, True]

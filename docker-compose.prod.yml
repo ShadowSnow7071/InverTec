@@ -1,0 +1,9 @@
+# Override de docker-compose.yml para simular producción en local:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+
+services:
+  web:
+    environment:
+      APP_CONFIG: production
+    # Con APP_CONFIG=production, Config.validate() exige que SECRET_KEY y
+    # JWT_SECRET_KEY vengan de .env con valores reales de al menos 32
