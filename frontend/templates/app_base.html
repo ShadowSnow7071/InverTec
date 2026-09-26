@@ -71,18 +71,33 @@
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-              <p>El riesgo de una operación junta dos cosas:</p>
-              <ul>
-                <li><strong>Qué tanto se mueve la acción</strong> (su volatilidad): unas acciones son más tranquilas y otras suben y bajan mucho.</li>
-                <li><strong>Qué tan grande es la compra</strong> comparada con tu saldo disponible: comprar poco pesa poco, comprar mucho pesa más.</li>
-              </ul>
-              <p>Con eso se obtiene un puntaje de 0 a 100:</p>
-              <ul class="mb-3">
-                <li><span class="text-success">●</span> <strong>Bajo</strong> — menos de 35 puntos</li>
-                <li><span class="text-warning">●</span> <strong>Medio</strong> — de 35 a 69 puntos</li>
-                <li><span class="text-danger">●</span> <strong>Alto</strong> — 70 puntos o más</li>
-              </ul>
-              <p class="mb-0 text-muted">En Mercado ves el riesgo estimado de comprar 1 acción; en Simular se recalcula con la cantidad exacta que estás por comprar, por eso puede cambiar de nivel.</p>
+              <div id="ayuda-riesgo-paso-1">
+                <p>El riesgo de una operación junta dos cosas: qué tanto se mueve la acción normalmente (su volatilidad) y qué tan grande es la compra comparada con tu saldo disponible, entre más de tu saldo uses en una sola compra, más pesa.</p>
+                <div class="p-3 mb-3 text-center" style="background: var(--surface); border-radius: 10px; font-family: monospace; font-size: 0.9rem;">
+                  riesgo = (% de tu saldo usado × 0.6) + volatilidad de la acción
+                </div>
+                <p class="mb-2">Ese resultado va de 0 a 100:</p>
+                <ul class="mb-0">
+                  <li><span class="text-success">●</span> <strong>Bajo</strong> — menos de 25 puntos</li>
+                  <li><span class="text-warning">●</span> <strong>Medio</strong> — de 25 a 39 puntos</li>
+                  <li><span class="text-danger">●</span> <strong>Alto</strong> — 40 puntos o más</li>
+                </ul>
+                <p class="mb-0 mt-2 text-muted small">En Mercado ves el riesgo estimado de comprar 1 acción; en Simular se recalcula con la cantidad exacta que estás por comprar, por eso puede cambiar de nivel.</p>
+              </div>
+              <div id="ayuda-riesgo-paso-2" class="d-none">
+                <p class="fw-bold mb-2">Protips si no sabes qué hacer después de comprar:</p>
+                <ul class="mb-0">
+                  <li class="mb-2">Un nivel "Alto" no significa que no debas comprar esa acción, significa que si el precio baja, lo vas a notar más fuerte, prueba comprando menos cantidad primero.</li>
+                  <li class="mb-2">No pongas todo tu saldo en una sola acción, repartirlo entre varias hace que una mala racha en una no te deje en cero.</li>
+                  <li class="mb-2">No hay una regla fija de cuándo vender aquí, es un simulador para practicar, prueba distintas estrategias y observa qué pasa con tu portafolio en Historial y Análisis.</li>
+                  <li class="mb-0">Revisa tu Ganancia/Pérdida real en Análisis de vez en cuando, en lugar de solo mirar si el precio subió o bajó ese día.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <span class="text-muted small me-auto" id="ayuda-riesgo-indicador">1 de 2</span>
+              <button class="btn btn-outline-secondary d-none" id="ayuda-riesgo-atras" type="button">← Atrás</button>
+              <button class="btn btn-primary" id="ayuda-riesgo-siguiente" type="button">Siguiente →</button>
             </div>
           </div>
         </div>
@@ -153,6 +168,37 @@
       }
       if (sidebarBackdrop) {
         sidebarBackdrop.addEventListener("click", cerrarSidebarMovil);
+      }
+
+      const modalAyudaRiesgo = document.getElementById("modal-ayuda-riesgo");
+      const ayudaPasoUno = document.getElementById("ayuda-riesgo-paso-1");
+      const ayudaPasoDos = document.getElementById("ayuda-riesgo-paso-2");
+      const btnAyudaSiguiente = document.getElementById("ayuda-riesgo-siguiente");
+      const btnAyudaAtras = document.getElementById("ayuda-riesgo-atras");
+      const ayudaIndicador = document.getElementById("ayuda-riesgo-indicador");
+
+      function mostrarPasoAyuda(paso) {
+        ayudaPasoUno.classList.toggle("d-none", paso !== 1);
+        ayudaPasoDos.classList.toggle("d-none", paso !== 2);
+        btnAyudaAtras.classList.toggle("d-none", paso === 1);
+        btnAyudaSiguiente.textContent = paso === 1 ? "Siguiente →" : "Entendido";
+        ayudaIndicador.textContent = `${paso} de 2`;
+      }
+
+      if (btnAyudaSiguiente) {
+        btnAyudaSiguiente.addEventListener("click", () => {
+          if (ayudaPasoUno.classList.contains("d-none")) {
+            bootstrap.Modal.getInstance(modalAyudaRiesgo)?.hide();
+          } else {
+            mostrarPasoAyuda(2);
+          }
+        });
+      }
+      if (btnAyudaAtras) {
+        btnAyudaAtras.addEventListener("click", () => mostrarPasoAyuda(1));
+      }
+      if (modalAyudaRiesgo) {
+        modalAyudaRiesgo.addEventListener("hidden.bs.modal", () => mostrarPasoAyuda(1));
       }
     </script>
     {% block scripts %}{% endblock %}

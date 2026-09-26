@@ -166,9 +166,9 @@ class AccionServicio:
         riesgo = (exposicion * Decimal("0.60")) + (volatilidad * Decimal("100"))
         riesgo = min(max(riesgo, Decimal("0")), Decimal("100"))
 
-        if riesgo < Decimal("35"):
+        if riesgo < Decimal("25"):
             riesgo_nivel = "bajo"
-        elif riesgo < Decimal("70"):
+        elif riesgo < Decimal("40"):
             riesgo_nivel = "medio"
         else:
             riesgo_nivel = "alto"

@@ -328,8 +328,8 @@ class PortafolioServicio:
     def _nivel_riesgo(riesgo):
         if riesgo is None:
             return None
-        if riesgo < Decimal("35"):
+        if riesgo < Decimal("25"):
             return "bajo"
-        if riesgo < Decimal("70"):
+        if riesgo < Decimal("40"):
             return "medio"
         return "alto"

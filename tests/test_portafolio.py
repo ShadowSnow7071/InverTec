@@ -75,7 +75,7 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
                 tipo=TipoMovimiento.compra,
                 cantidad=Decimal("2.0000"),
                 precio_unitario=Decimal("120.00"),
-                riesgo_calculado=Decimal("25.00"),
+                riesgo_calculado=Decimal("15.00"),
             )
         )
         db.session.commit()
@@ -87,7 +87,7 @@ def test_movimientos_devuelve_historial_del_usuario(client, app):
 
     assert respuesta.status_code == 200
     assert respuesta.get_json()[0]["ticker"] == "NVDA"
-    assert respuesta.get_json()[0]["riesgo_calculado"] == "25.00"
+    assert respuesta.get_json()[0]["riesgo_calculado"] == "15.00"
     assert respuesta.get_json()[0]["riesgo_nivel"] == "bajo"
 
 
@@ -360,7 +360,7 @@ def test_api_detalle_movimiento_devuelve_un_movimiento(client, app):
             tipo=TipoMovimiento.compra,
             cantidad=Decimal("1.5000"),
             precio_unitario=Decimal("200.00"),
-            riesgo_calculado=Decimal("42.50"),
+            riesgo_calculado=Decimal("32.50"),
         )
         db.session.add(movimiento)
         db.session.commit()
@@ -375,7 +375,7 @@ def test_api_detalle_movimiento_devuelve_un_movimiento(client, app):
     cuerpo = respuesta.get_json()
     assert cuerpo["id"] == movimiento_id
     assert cuerpo["ticker"] == "MSFT"
-    assert cuerpo["riesgo_calculado"] == "42.50"
+    assert cuerpo["riesgo_calculado"] == "32.50"
     assert cuerpo["riesgo_nivel"] == "medio"
 
 
@@ -467,4 +467,4 @@ def test_obtener_saldo_de_usuario_sin_portafolio_es_none(app):
     with app.app_context():
         saldo = PortafolioServicio().obtener_saldo(999999)
 
-    assert saldo is None    
+    assert saldo is None
