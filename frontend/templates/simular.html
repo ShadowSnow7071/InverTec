@@ -71,6 +71,7 @@
 
       <div class="alert alert-danger mb-3 d-none" id="error-cantidad-precio" role="alert">La cantidad y el precio deben ser mayores a cero</div>
       <div class="alert alert-danger mb-3 d-none" id="error-saldo-insuficiente" role="alert">Saldo insuficiente para esta compra</div>
+      <div class="alert alert-danger mb-3 d-none" id="error-cantidad-insuficiente" role="alert">No tienes suficientes acciones para vender</div>
 
       <div class="d-flex justify-content-between align-items-center p-3 mb-3" style="background: var(--surface); border-radius: 10px;">
         <span class="text-muted">Costo total estimado</span>
@@ -126,6 +127,7 @@
   const costoTotal = document.getElementById("costo-total");
   const errorCantidadPrecio = document.getElementById("error-cantidad-precio");
   const errorSaldoInsuficiente = document.getElementById("error-saldo-insuficiente");
+  const errorCantidadInsuficiente = document.getElementById("error-cantidad-insuficiente");
   const riesgoResultado = document.getElementById("riesgo-resultado");
   const resultadoOperacion = document.getElementById("resultado-operacion");
   const consultarRiesgo = document.getElementById("consultar-riesgo");
@@ -138,6 +140,7 @@
   let tipoOperacion = "{{ operacion_inicial }}" === "vender" ? "vender" : "comprar";
   let riesgoActual = null;
   const saldoVirtual = parseFloat("{{ saldo_virtual or '0' }}");
+  const posicionesDisponibles = {{ posiciones_disponibles | tojson }};
 
   function tokenCsrf() {
     const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
@@ -179,11 +182,20 @@
     return cantidad * precio <= saldoVirtual;
   }
 
+  function cantidadDisponibleAlcanza() {
+    if (tipoOperacion !== "vender") return true; // comprar no depende de posiciones
+    const cantidad = parseFloat(cantidadOperacion.value) || 0;
+    const disponible = parseFloat(posicionesDisponibles[accionOperacion.value] || "0");
+    return cantidad <= disponible;
+  }
+
   function validarSaldoSuficiente() {
     const alcanza = saldoAlcanza();
+    const cantidadAlcanza = cantidadDisponibleAlcanza();
     errorSaldoInsuficiente.classList.toggle("d-none", alcanza);
-    document.getElementById("ir-paso-3").disabled = !alcanza;
-    return alcanza;
+    errorCantidadInsuficiente.classList.toggle("d-none", cantidadAlcanza);
+    document.getElementById("ir-paso-3").disabled = !alcanza || !cantidadAlcanza;
+    return alcanza && cantidadAlcanza;
   }
 
   function cantidadPrecioValidos() {
@@ -239,7 +251,7 @@
   document.getElementById("volver-paso-1").addEventListener("click", () => irAPaso(1));
 
   document.getElementById("ir-paso-3").addEventListener("click", () => {
-    if (!validarCantidadPrecio() || !saldoAlcanza()) {
+    if (!validarCantidadPrecio() || !saldoAlcanza() || !cantidadDisponibleAlcanza()) {
       cantidadOperacion.focus();
       return;
     }
@@ -275,6 +287,7 @@
   const MENSAJES_VALIDACION_CANTIDAD_PRECIO = [
     "La cantidad y el precio deben ser mayores a cero",
     "La cantidad o el saldo no son válidos",
+    "No tienes suficientes acciones para vender",
   ];
 
   async function enviarOperacion(url, datos) {

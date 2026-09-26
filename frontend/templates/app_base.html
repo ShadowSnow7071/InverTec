@@ -85,7 +85,6 @@
                 <p class="mb-0 mt-2 text-muted small">En Mercado ves el riesgo estimado de comprar 1 acción; en Simular se recalcula con la cantidad exacta que estás por comprar, por eso puede cambiar de nivel.</p>
               </div>
               <div id="ayuda-riesgo-paso-2" class="d-none">
-                <p class="fw-bold mb-2">Protips si no sabes qué hacer después de comprar:</p>
                 <ul class="mb-0">
                   <li class="mb-2">Un nivel "Alto" no significa que no debas comprar esa acción, significa que si el precio baja, lo vas a notar más fuerte, prueba comprando menos cantidad primero.</li>
                   <li class="mb-2">No pongas todo tu saldo en una sola acción, repartirlo entre varias hace que una mala racha en una no te deje en cero.</li>
@@ -171,11 +170,13 @@
       }
 
       const modalAyudaRiesgo = document.getElementById("modal-ayuda-riesgo");
+      const ayudaTitulo = document.getElementById("modal-ayuda-riesgo-titulo");
       const ayudaPasoUno = document.getElementById("ayuda-riesgo-paso-1");
       const ayudaPasoDos = document.getElementById("ayuda-riesgo-paso-2");
       const btnAyudaSiguiente = document.getElementById("ayuda-riesgo-siguiente");
       const btnAyudaAtras = document.getElementById("ayuda-riesgo-atras");
       const ayudaIndicador = document.getElementById("ayuda-riesgo-indicador");
+      const TITULOS_AYUDA_RIESGO = ["¿Cómo se calcula el nivel de riesgo?", "Protips después de comprar"];
 
       function mostrarPasoAyuda(paso) {
         ayudaPasoUno.classList.toggle("d-none", paso !== 1);
@@ -183,6 +184,7 @@
         btnAyudaAtras.classList.toggle("d-none", paso === 1);
         btnAyudaSiguiente.textContent = paso === 1 ? "Siguiente →" : "Entendido";
         ayudaIndicador.textContent = `${paso} de 2`;
+        ayudaTitulo.textContent = TITULOS_AYUDA_RIESGO[paso - 1];
       }
 
       if (btnAyudaSiguiente) {
