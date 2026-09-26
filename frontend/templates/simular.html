@@ -118,6 +118,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script id="datos-posiciones-disponibles" type="application/json">{{ posiciones_disponibles | tojson }}</script>
 <script>
   const btnComprar = document.getElementById("btn-comprar");
   const btnVender = document.getElementById("btn-vender");
@@ -140,7 +141,7 @@
   let tipoOperacion = "{{ operacion_inicial }}" === "vender" ? "vender" : "comprar";
   let riesgoActual = null;
   const saldoVirtual = parseFloat("{{ saldo_virtual or '0' }}");
-  const posicionesDisponibles = {{ posiciones_disponibles | tojson }};
+  const posicionesDisponibles = JSON.parse(document.getElementById("datos-posiciones-disponibles").textContent);
 
   function tokenCsrf() {
     const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
