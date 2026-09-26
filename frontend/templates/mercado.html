@@ -129,29 +129,40 @@
   });
   filtrarMercado();
 
-  function nivelDeVolatilidad(valor) {
-    if (valor >= 35) return {texto: "Alto", clase: "danger"};
-    if (valor >= 22) return {texto: "Medio", clase: "warning"};
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function estiloRiesgo(nivel) {
+    if (nivel === "alto") return {texto: "Alto", clase: "danger"};
+    if (nivel === "medio") return {texto: "Medio", clase: "warning"};
     return {texto: "Bajo", clase: "success"};
   }
 
-  async function cargarVolatilidad(fila) {
+  async function cargarRiesgo(fila) {
     try {
-      const respuesta = await fetch(`/api/acciones/${fila.dataset.ticker}`);
+      const respuesta = await fetch("/api/portafolio/movimientos/riesgo", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+        body: JSON.stringify({ticker: fila.dataset.ticker, cantidad: "1"}),
+      });
       if (!respuesta.ok) return;
       const datos = await respuesta.json();
-      const nivel = nivelDeVolatilidad(parseFloat(datos.volatilidad));
+      const nivel = estiloRiesgo(datos.riesgo_nivel);
       const badge = fila.querySelector("[data-volatilidad-badge]");
-      badge.textContent = `${nivel.texto} · ${datos.volatilidad}`;
+      badge.textContent = `${nivel.texto} · ${datos.volatilidad_porcentaje}`;
       badge.className = `badge text-bg-${nivel.clase}`;
-      fila.dataset.volatilidad = datos.volatilidad;
+      fila.dataset.riesgoNivel = datos.riesgo_nivel;
+      fila.dataset.riesgoPuntaje = datos.riesgo_calculado;
+      fila.dataset.volatilidad = datos.volatilidad_porcentaje;
       fila.dataset.nombreCompleto = datos.nombre_empresa;
-      fila.dataset.precio = datos.precio_actual;
+      fila.dataset.precio = datos.precio_unitario;
     } catch (error) {
       // Si falla, se deja el guion por defecto
     }
   }
-  document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarVolatilidad);
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarRiesgo);
 
   const textoPorNivel = (ticker, nivel) => {
     if (nivel === "alto") return `${ticker} se mueve mucho. Podrías ganar o perder rápido — ideal para aprender con cuidado.`;
@@ -160,7 +171,7 @@
   };
 
   function mostrarDetalle(fila) {
-    const nivel = nivelDeVolatilidad(parseFloat(fila.dataset.volatilidad || "0"));
+    const nivel = estiloRiesgo(fila.dataset.riesgoNivel || "medio");
     detalleAccion.innerHTML = `
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-3">
@@ -172,9 +183,10 @@
         <p class="display-6 mb-3">USD ${fila.dataset.precio || "--"}</p>
         <div class="alert alert-${nivel.clase} mb-3">
           <strong>Riesgo ${nivel.texto}</strong>
-          <p class="mb-1">Puntaje: ${fila.dataset.volatilidad || "--"}</p>
-          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, nivel.clase === "success" ? "bajo" : nivel.clase === "warning" ? "medio" : "alto")}</p>
+          <p class="mb-1">Puntaje: ${fila.dataset.riesgoPuntaje || "--"}</p>
+          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, fila.dataset.riesgoNivel || "medio")}</p>
         </div>
+        <p class="text-muted small mb-3">Riesgo estimado al comprar 1 acción. Sube si compras más, según cuánto de tu saldo uses.</p>
         <a class="btn btn-primary w-100" href="/simular?ticker=${fila.dataset.ticker}">Simular con ${fila.dataset.ticker}</a>
       </div>
     `;

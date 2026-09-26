@@ -352,6 +352,14 @@ body {
   background-color: #8b3f3b !important;
 }
 
+.text-success {
+  color: #7CF5D4 !important;
+}
+
+.text-danger {
+  color: #FF9B85 !important;
+}
+
 .alert-success {
   --bs-alert-color: #c3f5e4;
   --bs-alert-bg: #10302a;

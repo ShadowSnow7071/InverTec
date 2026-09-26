@@ -49,6 +49,9 @@
           {% endif %}
         </nav>
         <div class="app-sidebar-footer">
+          <button class="app-sidebar-link" id="btn-ayuda-riesgo" type="button" data-bs-toggle="modal" data-bs-target="#modal-ayuda-riesgo">
+            <span aria-hidden="true">?</span> <span class="app-nav-label">Cómo se calcula el riesgo</span>
+          </button>
           <button class="app-sidebar-link" type="button" disabled title="Próximamente">
             <span aria-hidden="true">☀</span> <span class="app-nav-label">Modo claro</span>
           </button>
@@ -59,6 +62,31 @@
       </aside>
 
       <div class="app-sidebar-backdrop" id="app-sidebar-backdrop"></div>
+
+      <div class="modal fade" id="modal-ayuda-riesgo" tabindex="-1" aria-labelledby="modal-ayuda-riesgo-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title h5" id="modal-ayuda-riesgo-titulo">¿Cómo se calcula el nivel de riesgo?</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+              <p>El riesgo de una operación junta dos cosas:</p>
+              <ul>
+                <li><strong>Qué tanto se mueve la acción</strong> (su volatilidad): unas acciones son más tranquilas y otras suben y bajan mucho.</li>
+                <li><strong>Qué tan grande es la compra</strong> comparada con tu saldo disponible: comprar poco pesa poco, comprar mucho pesa más.</li>
+              </ul>
+              <p>Con eso se obtiene un puntaje de 0 a 100:</p>
+              <ul class="mb-3">
+                <li><span class="text-success">●</span> <strong>Bajo</strong> — menos de 35 puntos</li>
+                <li><span class="text-warning">●</span> <strong>Medio</strong> — de 35 a 69 puntos</li>
+                <li><span class="text-danger">●</span> <strong>Alto</strong> — 70 puntos o más</li>
+              </ul>
+              <p class="mb-0 text-muted">En Mercado ves el riesgo estimado de comprar 1 acción; en Simular se recalcula con la cantidad exacta que estás por comprar, por eso puede cambiar de nivel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="app-main">
         <header class="app-topbar">
