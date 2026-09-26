@@ -1,6 +1,7 @@
 services:
   db:
     image: mysql:8.4
+    command: ["--log-error-verbosity=3"]
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: invertec

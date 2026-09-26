@@ -22,7 +22,7 @@ class PortafolioServicio:
         return self._estado_portafolio(portafolio)
 
     def comprar(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None, password=None):
-        portafolio = self._obtener_portafolio(usuario_id)
+        portafolio = self._obtener_portafolio(usuario_id, bloquear=True)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
@@ -57,7 +57,7 @@ class PortafolioServicio:
         return self._estado_portafolio(portafolio)
 
     def vender(self, usuario_id: int, ticker: str, cantidad, riesgo_calculado=None):
-        portafolio = self._obtener_portafolio(usuario_id)
+        portafolio = self._obtener_portafolio(usuario_id, bloquear=True)
         if portafolio is None:
             raise ErrorNegocio("Portafolio no encontrado", 404)
 
@@ -160,10 +160,11 @@ class PortafolioServicio:
         }
 
     @staticmethod
-    def _obtener_portafolio(usuario_id: int):
-        return db.session.scalar(
-            select(Portafolio).where(Portafolio.usuario_id == usuario_id)
-        )
+    def _obtener_portafolio(usuario_id: int, bloquear: bool = False):
+        stmt = select(Portafolio).where(Portafolio.usuario_id == usuario_id)
+        if bloquear:
+            stmt = stmt.with_for_update()
+        return db.session.scalar(stmt)
 
     @staticmethod
     def _obtener_accion(ticker: str):
