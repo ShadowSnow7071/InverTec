@@ -35,7 +35,12 @@ PRECIOS_BASE = {
 
 class AccionServicio:
     _precios_cache = {}
-    _cache_segundos = 60
+    
+    _CACHE_SEGUNDOS_DEFECTO = 60 * 60 * 12
+
+    @classmethod
+    def _cache_segundos(cls):
+        return int(os.environ.get("MARKET_DATA_CACHE_SEGUNDOS", cls._CACHE_SEGUNDOS_DEFECTO))
 
     @classmethod
     def limpiar_cache(cls):
@@ -86,15 +91,16 @@ class AccionServicio:
             return {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
 
         guardado = cls._precios_cache.get(ticker)
-        if guardado and time.monotonic() - guardado[0] < cls._cache_segundos:
+        if guardado and time.monotonic() - guardado[0] < cls._cache_segundos():
             return guardado[1]
 
         cotizacion = cls._cotizacion_externa(ticker)
         if cotizacion is not None:
             resultado = {**cotizacion, "real": True}
-            cls._precios_cache[ticker] = (time.monotonic(), resultado)
-            return resultado
-        return {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
+        else:
+            resultado = {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
+        cls._precios_cache[ticker] = (time.monotonic(), resultado)
+        return resultado
 
     @classmethod
     def _precio_actual(cls, ticker: str):
