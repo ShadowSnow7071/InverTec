@@ -1,4 +1,4 @@
--- Esquema MySQL de referencia (mismo contenido que DB_SCHEMA.md).
+-- Esquema MySQL de referencia (mismo contenido que Documentación/DB_SCHEMA.md).
 -- En desarrollo se aplica con: flask db upgrade
 -- No ejecutar a mano si ya usas migraciones Alembic.
 
