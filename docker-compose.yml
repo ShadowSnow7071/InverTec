@@ -4,10 +4,10 @@ services:
     command: ["--log-error-verbosity=3"]
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: invertec
-      MYSQL_USER: invertec
-      MYSQL_PASSWORD: invertec
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?}
+      MYSQL_USER: ${MYSQL_USER:?}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
     ports:
       - "127.0.0.1:3307:3306"
     volumes:
@@ -28,7 +28,7 @@ services:
     environment:
       # Sobrescribe lo que traiga .env: dentro de la red de docker compose
       # la base no vive en localhost, vive en el servicio "db".
-      DATABASE_URL: mysql+pymysql://invertec:invertec@db:3306/invertec
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
       APP_CONFIG: development
     ports:
       - "8000:8000"
