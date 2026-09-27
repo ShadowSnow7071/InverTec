@@ -14,12 +14,17 @@ jobs:
     env:
       RAILWAY_VERSION: "5.2.0"
       RAILWAY_BIN_DIR: ${{ github.workspace }}/.railway-bin
+      
+      RAILWAY_INSTALL_COMMIT: "4b3cf5936274180f049c424edfb97aea1aced9aa"
+      RAILWAY_INSTALL_SHA256: "3675a6fc3ad9536c0434366d993af38488e8a038cea1e58c4330b36371ec717d"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar Railway CLI
+      - name: Instalar Railway CLI (verificado por checksum)
         run: |
-          bash <(curl -fsSL https://railway.com/install.sh) -y
+          curl -fsSL "https://raw.githubusercontent.com/railwayapp/cli/${RAILWAY_INSTALL_COMMIT}/install.sh" -o install.sh
+          echo "${RAILWAY_INSTALL_SHA256}  install.sh" | sha256sum -c -
+          bash install.sh -y
           echo "$RAILWAY_BIN_DIR" >> "$GITHUB_PATH"
 
       - name: Desplegar a Railway
