@@ -10,10 +10,13 @@ WORKDIR /app
 
 # Instalar dependencias primero (capa cacheable: solo se reinstala si cambia requirements.txt)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
 
-# Copiar el resto del proyecto
-COPY . .
+# Copiar solo lo que la app necesita en tiempo de ejecución (nunca .env, tests/, Documentación/, etc.)
+COPY backend/ backend/
+COPY frontend/ frontend/
+COPY database/migrations/ database/migrations/
+COPY Docker/entrypoint.sh Docker/entrypoint.sh
 
 # Usuario sin privilegios (no correr la app como root)
 # Por si el archivo llega con terminadores de línea de Windows (CRLF)
