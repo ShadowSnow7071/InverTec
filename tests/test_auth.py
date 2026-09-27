@@ -1,0 +1,465 @@
+import pytest
+
+from backend.conexion import db
+from backend.modelos import Portafolio, Usuario
+
+
+def datos_registro(correo="ana@example.com"):
+    return {
+        "nombre": "Ana",
+        "correo": correo,
+        "password": "Secreto12!",
+    }
+
+
+def test_registro_crea_usuario_portafolio_y_tokens(client, app):
+    respuesta = client.post("/api/auth/registro", json=datos_registro())
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.get_json()
+    assert cuerpo["usuario"]["correo"] == "ana@example.com"
+    assert "access_token" in cuerpo
+    assert "refresh_token" in cuerpo
+
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        assert usuario.portafolio is not None
+        assert usuario.portafolio.saldo_virtual == 50000
+        assert usuario.password_hash != "Secreto12!"
+
+
+def test_registro_rechaza_correo_duplicado(client):
+    client.post("/api/auth/registro", json=datos_registro())
+    respuesta = client.post("/api/auth/registro", json=datos_registro())
+
+    assert respuesta.status_code == 400
+    assert respuesta.get_json() == {"error": "El correo ya está registrado"}
+
+
+@pytest.mark.parametrize("password", ["secreto12", "SECRETO12!", "Secreto!!", "Secreto12!" * 13])
+def test_registro_rechaza_password_debil(client, password):
+    respuesta = client.post(
+        "/api/auth/registro",
+        json={**datos_registro("password@example.com"), "password": password},
+    )
+
+    assert respuesta.status_code == 400
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
+
+
+def test_login_y_perfil_protegido(client):
+    client.post("/api/auth/registro", json=datos_registro())
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "ANA@example.com", "password": "Secreto12!"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert login.status_code == 200
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["saldo_virtual"] == "50000.00"
+
+
+def test_perfil_sin_token_rechaza_acceso(client):
+    respuesta = client.get("/api/usuarios/me")
+
+    assert respuesta.status_code == 401
+    assert respuesta.get_json() == {"error": "Token requerido"}
+
+
+def test_configuracion_html_muestra_formulario_de_edicion(client):
+    client.post("/api/auth/registro", json=datos_registro("config_html@example.com"))
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "config_html@example.com", "password": "Secreto12!"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/configuracion",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Editar perfil" in contenido
+    assert 'id="perfil-form"' in contenido
+    assert 'name="nombre"' in contenido
+    assert 'name="correo"' in contenido
+    assert 'name="password"' in contenido
+
+
+def test_perfil_html_muestra_saldo_y_posiciones(client):
+    client.post("/api/auth/registro", json=datos_registro("perfil_market@example.com"))
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "perfil_market@example.com", "password": "Secreto12!"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/perfil",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Saldo disponible" in contenido
+    assert "Mis posiciones" in contenido
+
+    mercado = client.get("/mercado", headers={"Authorization": f"Bearer {token}"})
+    assert mercado.status_code == 200
+    assert "AAPL" in mercado.get_data(as_text=True)
+
+    simular = client.get("/simular", headers={"Authorization": f"Bearer {token}"})
+    assert simular.status_code == 200
+    contenido_simular = simular.get_data(as_text=True)
+    assert "Simular operación" in contenido_simular
+    assert "const saldoVirtual = parseFloat(" in contenido_simular
+
+
+def test_patch_perfil_actualiza_datos_del_usuario(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("perfil@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.patch(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "nombre": "Ana Updated",
+            "correo": "nuevo@example.com",
+            "password": "Nueva123!",
+        },
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["nombre"] == "Ana Updated"
+    assert cuerpo["correo"] == "nuevo@example.com"
+    assert cuerpo["saldo_virtual"] == "50000.00"
+
+
+def test_patch_perfil_rechaza_password_debil(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("password_update@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.patch(
+        "/api/usuarios/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"password": "solamente8"},
+    )
+
+    assert respuesta.status_code == 400
+    assert "entre 8 y 32 caracteres" in respuesta.get_json()["error"]
+
+
+def test_admin_html_muestra_usuarios_para_admin(client, app):
+    client.post("/api/auth/registro", json=datos_registro("admin_ui@example.com"))
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "admin_ui@example.com", "password": "Secreto12!"},
+    )
+    token = login.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/admin/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 200
+    contenido = respuesta.get_data(as_text=True)
+    assert "Usuarios" in contenido
+    assert "admin_ui@example.com" in contenido
+
+
+def test_usuario_inversionista_no_puede_listar_usuarios(client):
+    registro = client.post("/api/auth/registro", json=datos_registro("inversionista@example.com"))
+    token = registro.get_json()["access_token"]
+
+    respuesta = client.get(
+        "/api/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.get_json() == {"error": "No autorizado"}
+
+
+def test_login_rechaza_credenciales_invalidas(client):
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "nadie@example.com", "password": "Secreto12!"},
+    )
+
+    assert respuesta.status_code == 401
+    assert respuesta.get_json() == {"error": "Correo o contraseña incorrectos"}
+
+
+def test_login_limita_intentos_fallidos(client):
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": "fuerza_bruta@example.com", "password": "Incorrecta1!"},
+        )
+        assert respuesta.status_code == 401
+
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "fuerza_bruta@example.com", "password": "Incorrecta1!"},
+    )
+
+    assert respuesta.status_code == 429
+    assert respuesta.get_json() == {
+        "error": "Demasiados intentos fallidos. Intenta nuevamente más tarde"
+    }
+
+
+def test_login_limita_intentos_fallidos_por_ip(client):
+    """Verifica que se limita a 10 intentos fallidos por IP en 15 min"""
+    for i in range(10):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": f"correo_diferente_{i}@example.com", "password": "Incorrecta1!"},
+        )
+        assert respuesta.status_code == 401
+
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "otro@example.com", "password": "Incorrecta1!"},
+    )
+
+    assert respuesta.status_code == 429
+    assert "dirección IP" in respuesta.get_json()["error"]
+
+
+def test_rate_limiting_email_y_ip_son_independientes(client):
+    """Verifica que el límite por email (5) y por IP (10) son independientes"""
+    correo = "usuario@example.com"
+    
+    # Registrar usuario válido
+    client.post("/api/auth/registro", json=datos_registro(correo))
+    
+    # Hacer 5 intentos fallidos con el mismo correo (alcanza límite por email)
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 6to intento con el mismo correo debe ser 429
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
+    assert "intentos fallidos" in respuesta.get_json()["error"]
+    
+    # Pero puedo hacer intentos con otros correos desde la misma IP
+    # Hago 5 intentos más con correos diferentes (total 10 desde IP)
+    for i in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": f"otro{i}@example.com", "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 11vo intento desde la IP debe ser 429 (por IP)
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": "otro_mas@example.com", "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
+    assert "dirección IP" in respuesta.get_json()["error"]
+
+
+def test_login_exitoso_limpia_contadores_email_e_ip(client):
+    """Verifica que login exitoso limpia ambos contadores"""
+    correo = "usuario_limpieza@example.com"
+    
+    # Registrar usuario
+    client.post("/api/auth/registro", json=datos_registro(correo))
+    
+    # Hacer 2 intentos fallidos
+    for _ in range(2):
+        client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+    
+    # Login exitoso
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "Secreto12!"},
+    )
+    assert respuesta.status_code == 200
+    
+    # Después del login exitoso, el contador debe estar limpio
+    # Debo poder hacer nuevamente 5 intentos fallidos antes de alcanzar límite
+    for _ in range(5):
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"correo": correo, "password": "MalPassword1!"},
+        )
+        assert respuesta.status_code == 401
+    
+    # El 6to intento debe retornar 429 (límite por email)
+    respuesta = client.post(
+        "/api/auth/login",
+        json={"correo": correo, "password": "MalPassword1!"},
+    )
+    assert respuesta.status_code == 429
+
+
+def test_recuperacion_no_revela_si_correo_existe(client, app):
+    app.config["RESEND_API_KEY"] = "test-key"
+    app.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "no-existe@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "mensaje": "Si el correo existe, recibirás instrucciones para recuperar tu contraseña"
+    }
+
+
+def test_recuperacion_restablece_password_y_token_es_de_un_solo_uso(client, monkeypatch):
+    client.post("/api/auth/registro", json=datos_registro("recovery@example.com"))
+    token = {}
+
+    def capturar_correo(destinatario, nombre, enlace, api_key, from_email):
+        token["valor"] = enlace.split("token=", 1)[1]
+
+    monkeypatch.setattr(
+        "backend.servicios.auth.AuthServicio._enviar_correo_recuperacion",
+        staticmethod(capturar_correo),
+    )
+    client.application.config["RESEND_API_KEY"] = "test-key"
+    client.application.config["RESEND_FROM_EMAIL"] = "no-reply@example.com"
+    respuesta = client.post(
+        "/api/auth/recuperar-password",
+        json={"correo": "recovery@example.com"},
+    )
+
+    assert respuesta.status_code == 200
+    cambio = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva123!"},
+    )
+    repetido = client.post(
+        "/api/auth/restablecer-password",
+        json={"token": token["valor"], "password": "Nueva456!"},
+    )
+
+    assert cambio.status_code == 200
+    assert repetido.status_code == 400
+
+
+@pytest.mark.parametrize("endpoint", ["/api/auth/registro", "/api/auth/login"])
+def test_auth_rechaza_cuerpo_que_no_es_json(client, endpoint):
+    respuesta = client.post(endpoint, data="nombre=Ana")
+
+    assert respuesta.status_code == 415
+    assert respuesta.get_json() == {"error": "El cuerpo debe ser JSON"}
+
+
+def test_refresh_emite_nuevo_access_token(client):
+    registro = client.post("/api/auth/registro", json=datos_registro())
+    refresh_token = registro.get_json()["refresh_token"]
+
+    respuesta = client.post(
+        "/api/auth/refresh",
+        headers={"Authorization": f"Bearer {refresh_token}"},
+    )
+
+    assert respuesta.status_code == 200
+    assert "access_token" in respuesta.get_json()
+
+
+def test_refresh_preserva_claim_de_rol(client, app):
+    client.post("/api/auth/registro", json=datos_registro("refresh_admin@example.com"))
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        usuario.rol = "administrador"
+        db.session.commit()
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "refresh_admin@example.com", "password": "Secreto12!"},
+    )
+    refresh_token = login.get_json()["refresh_token"]
+    respuesta = client.post(
+        "/api/auth/refresh",
+        headers={"Authorization": f"Bearer {refresh_token}"},
+    )
+
+    from flask_jwt_extended import decode_token
+
+    assert respuesta.status_code == 200
+    assert decode_token(respuesta.get_json()["access_token"])["rol"] == "administrador"
+
+
+def test_flujo_html_registro_perfil_y_logout(client):
+    registro = client.post(
+        "/registro",
+        data={
+            "nombre": "Luis",
+            "correo": "luis@example.com",
+            "password": "Secreto12!",
+        },
+        follow_redirects=True,
+    )
+
+    assert registro.status_code == 200
+    assert b"Hola, Luis" in registro.data
+    assert b"50000.00" in registro.data
+
+    mercado = client.get("/mercado")
+    assert b"AAPL" in mercado.data
+    assert b"Apple Inc." in mercado.data
+    assert "Los precios son de referencia".encode() in mercado.data
+
+    simular = client.get("/simular")
+    assert b"Simular operaci\xc3\xb3n" in simular.data
+    assert b"Consultar riesgo" in simular.data
+
+    logout = client.post("/logout", follow_redirects=True)
+
+    assert logout.status_code == 200
+    assert b"Inicia sesi\xc3\xb3n" in logout.data
+
+
+def test_index_redirige_a_perfil_si_hay_sesion(client):
+    client.post(
+        "/registro",
+        data={
+            "nombre": "Ana",
+            "correo": "ana@example.com",
+            "password": "Secreto12!",
+        },
+        follow_redirects=True,
+    )
+
+    respuesta = client.get("/", follow_redirects=False)
+
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/perfil"
+
+
+def test_index_muestra_login_sin_sesion(client):
+    respuesta = client.get("/")
+
+    assert respuesta.status_code == 200
+    assert b"Inicia sesi\xc3\xb3n" in respuesta.data
