@@ -54,6 +54,11 @@
     <p class="text-muted small mt-2 mb-0">Las filas marcadas con * usan un % de cambio simulado (sin conexión a datos de mercado en ese momento, por ejemplo por límite de peticiones).</p>
     {% endif %}
     <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
+    <nav class="d-none d-flex align-items-center justify-content-between mt-3" id="paginacion-mercado" aria-label="Paginación de acciones">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="pagina-anterior">‹ Anterior</button>
+      <span class="text-muted small" id="pagina-indicador"></span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="pagina-siguiente">Siguiente ›</button>
+    </nav>
   </div>
 
   <div class="col-lg-4">
@@ -71,43 +76,93 @@
   const buscarAcciones = document.getElementById("buscar-acciones");
   const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   const detalleAccion = document.getElementById("detalle-accion");
+  const paginacionMercado = document.getElementById("paginacion-mercado");
+  const paginaIndicador = document.getElementById("pagina-indicador");
+  const botonPaginaAnterior = document.getElementById("pagina-anterior");
+  const botonPaginaSiguiente = document.getElementById("pagina-siguiente");
+  const FILAS_POR_PAGINA = 6;
+  let paginaActual = 1;
+  let coincidenciasActuales = [];
 
-  function filtrarMercado() {
+  function calcularCoincidencias() {
     const consulta = buscarAcciones.value.trim().toLowerCase();
     const filas = [...document.querySelectorAll("#tabla-mercado tbody tr")];
-    const coincidencias = filas.filter((fila) => {
+    return filas.filter((fila) => {
       const texto = `${fila.dataset.ticker} ${fila.dataset.nombre}`.toLowerCase();
       return texto.includes(consulta);
     });
-    filas.forEach((fila) => fila.classList.add("d-none"));
-    coincidencias.forEach((fila) => fila.classList.remove("d-none"));
-    sinResultadosMercado.classList.toggle("d-none", coincidencias.length > 0);
   }
-  buscarAcciones.addEventListener("input", filtrarMercado);
 
-  function nivelDeVolatilidad(valor) {
-    if (valor >= 35) return {texto: "Alto", clase: "danger"};
-    if (valor >= 22) return {texto: "Medio", clase: "warning"};
+  function renderizarPagina() {
+    const totalPaginas = Math.max(1, Math.ceil(coincidenciasActuales.length / FILAS_POR_PAGINA));
+    paginaActual = Math.min(Math.max(paginaActual, 1), totalPaginas);
+    const inicio = (paginaActual - 1) * FILAS_POR_PAGINA;
+    const visiblesEnPagina = coincidenciasActuales.slice(inicio, inicio + FILAS_POR_PAGINA);
+
+    document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => fila.classList.add("d-none"));
+    visiblesEnPagina.forEach((fila) => fila.classList.remove("d-none"));
+
+    const necesitaPaginacion = coincidenciasActuales.length > FILAS_POR_PAGINA;
+    paginacionMercado.classList.toggle("d-none", !necesitaPaginacion);
+    if (necesitaPaginacion) {
+      paginaIndicador.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+      botonPaginaAnterior.disabled = paginaActual === 1;
+      botonPaginaSiguiente.disabled = paginaActual === totalPaginas;
+    }
+  }
+
+  function filtrarMercado() {
+    coincidenciasActuales = calcularCoincidencias();
+    paginaActual = 1;
+    sinResultadosMercado.classList.toggle("d-none", coincidenciasActuales.length > 0);
+    renderizarPagina();
+  }
+
+  buscarAcciones.addEventListener("input", filtrarMercado);
+  botonPaginaAnterior.addEventListener("click", () => {
+    paginaActual -= 1;
+    renderizarPagina();
+  });
+  botonPaginaSiguiente.addEventListener("click", () => {
+    paginaActual += 1;
+    renderizarPagina();
+  });
+  filtrarMercado();
+
+  function tokenCsrf() {
+    const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  }
+
+  function estiloRiesgo(nivel) {
+    if (nivel === "alto") return {texto: "Alto", clase: "danger"};
+    if (nivel === "medio") return {texto: "Medio", clase: "warning"};
     return {texto: "Bajo", clase: "success"};
   }
 
-  async function cargarVolatilidad(fila) {
+  async function cargarRiesgo(fila) {
     try {
-      const respuesta = await fetch(`/api/acciones/${fila.dataset.ticker}`);
+      const respuesta = await fetch("/api/portafolio/movimientos/riesgo", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRF-TOKEN": tokenCsrf()},
+        body: JSON.stringify({ticker: fila.dataset.ticker, cantidad: "1"}),
+      });
       if (!respuesta.ok) return;
       const datos = await respuesta.json();
-      const nivel = nivelDeVolatilidad(parseFloat(datos.volatilidad));
+      const nivel = estiloRiesgo(datos.riesgo_nivel);
       const badge = fila.querySelector("[data-volatilidad-badge]");
-      badge.textContent = `${nivel.texto} · ${datos.volatilidad}`;
+      badge.textContent = `${nivel.texto} · ${datos.volatilidad_porcentaje}`;
       badge.className = `badge text-bg-${nivel.clase}`;
-      fila.dataset.volatilidad = datos.volatilidad;
+      fila.dataset.riesgoNivel = datos.riesgo_nivel;
+      fila.dataset.riesgoPuntaje = datos.riesgo_calculado;
+      fila.dataset.volatilidad = datos.volatilidad_porcentaje;
       fila.dataset.nombreCompleto = datos.nombre_empresa;
-      fila.dataset.precio = datos.precio_actual;
+      fila.dataset.precio = datos.precio_unitario;
     } catch (error) {
       // Si falla, se deja el guion por defecto
     }
   }
-  document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarVolatilidad);
+  document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarRiesgo);
 
   const textoPorNivel = (ticker, nivel) => {
     if (nivel === "alto") return `${ticker} se mueve mucho. Podrías ganar o perder rápido — ideal para aprender con cuidado.`;
@@ -116,7 +171,7 @@
   };
 
   function mostrarDetalle(fila) {
-    const nivel = nivelDeVolatilidad(parseFloat(fila.dataset.volatilidad || "0"));
+    const nivel = estiloRiesgo(fila.dataset.riesgoNivel || "medio");
     detalleAccion.innerHTML = `
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-3">
@@ -128,9 +183,10 @@
         <p class="display-6 mb-3">USD ${fila.dataset.precio || "--"}</p>
         <div class="alert alert-${nivel.clase} mb-3">
           <strong>Riesgo ${nivel.texto}</strong>
-          <p class="mb-1">Puntaje: ${fila.dataset.volatilidad || "--"}</p>
-          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, nivel.clase === "success" ? "bajo" : nivel.clase === "warning" ? "medio" : "alto")}</p>
+          <p class="mb-1">Puntaje: ${fila.dataset.riesgoPuntaje || "--"}</p>
+          <p class="mb-0">${textoPorNivel(fila.dataset.ticker, fila.dataset.riesgoNivel || "medio")}</p>
         </div>
+        <p class="text-muted small mb-3">Riesgo estimado al comprar 1 acción. Sube si compras más, según cuánto de tu saldo uses.</p>
         <a class="btn btn-primary w-100" href="/simular?ticker=${fila.dataset.ticker}">Simular con ${fila.dataset.ticker}</a>
       </div>
     `;

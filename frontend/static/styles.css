@@ -352,6 +352,29 @@ body {
   background-color: #8b3f3b !important;
 }
 
+.text-success {
+  color: #7CF5D4 !important;
+}
+
+.text-danger {
+  color: #FF9B85 !important;
+}
+
+.modal-content {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--line);
+}
+
+.modal .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
 .alert-success {
   --bs-alert-color: #c3f5e4;
   --bs-alert-bg: #10302a;

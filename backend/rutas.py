@@ -183,6 +183,13 @@ def historial():
 def simular():
     usuario = current_user
     catalogo = acciones.listar_catalogo(precios_reales=False)
+    usuario_id = int(get_jwt_identity())
+    saldo_virtual = portafolio.obtener_saldo(usuario_id)
+    datos_portafolio = portafolio.obtener(usuario_id)
+    posiciones_disponibles = {
+        posicion["ticker"]: posicion["cantidad"]
+        for posicion in (datos_portafolio["posiciones"] if datos_portafolio else [])
+    }
     return render_template(
         "simular.html",
         seccion_activa="simular",
@@ -190,6 +197,8 @@ def simular():
         catalogo=catalogo,
         ticker_inicial=request.args.get("ticker", "").upper(),
         operacion_inicial=request.args.get("operacion", "comprar"),
+        saldo_virtual=saldo_virtual,
+        posiciones_disponibles=posiciones_disponibles,
     )
 
 

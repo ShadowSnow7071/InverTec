@@ -118,7 +118,9 @@ def test_perfil_html_muestra_saldo_y_posiciones(client):
 
     simular = client.get("/simular", headers={"Authorization": f"Bearer {token}"})
     assert simular.status_code == 200
-    assert "Simular operación" in simular.get_data(as_text=True)
+    contenido_simular = simular.get_data(as_text=True)
+    assert "Simular operación" in contenido_simular
+    assert "const saldoVirtual = parseFloat(" in contenido_simular
 
 
 def test_patch_perfil_actualiza_datos_del_usuario(client):
