@@ -22,7 +22,7 @@ jobs:
 
       - name: Instalar Railway CLI (verificado por checksum)
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/railwayapp/cli/${RAILWAY_INSTALL_COMMIT}/install.sh" -o install.sh
+          curl --proto '=https' --tlsv1.2 -fsSL "https://raw.githubusercontent.com/railwayapp/cli/${RAILWAY_INSTALL_COMMIT}/install.sh" -o install.sh
           echo "${RAILWAY_INSTALL_SHA256}  install.sh" | sha256sum -c -
           bash install.sh -y
           echo "$RAILWAY_BIN_DIR" >> "$GITHUB_PATH"
