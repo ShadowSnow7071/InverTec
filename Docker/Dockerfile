@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Instalar dependencias primero (capa cacheable: solo se reinstala si cambia requirements.txt)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt
 
 # Copiar el resto del proyecto
 COPY . .
