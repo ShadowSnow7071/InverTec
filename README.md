@@ -87,6 +87,7 @@ pytest --cov=backend --cov-report=term-missing
 
 ## Documentación técnica
 
-- [TECH_STACK.md](TECH_STACK.md)
-- [DB_SCHEMA.md](DB_SCHEMA.md)
-- [API_CONVENTIONS.md](API_CONVENTIONS.md)
+- [TECH_STACK.md](Documentación/TECH_STACK.md)
+- [DB_SCHEMA.md](Documentación/DB_SCHEMA.md)
+- [API_CONVENTIONS.md](Documentación/API_CONVENTIONS.md)
+- [DEPLOY.md](Documentación/DEPLOY.md)
