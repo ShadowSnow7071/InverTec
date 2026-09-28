@@ -13,5 +13,5 @@ htmlcov/
 instance/
 *.db
 .DS_Store
-zap-report.html
-zap.yml
+zap-reporte.html
+zap.yaml
