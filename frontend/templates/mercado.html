@@ -8,7 +8,12 @@
 <p class="text-muted mb-4">Explora acciones y practica tus inversiones sin riesgo real</p>
 
 <div class="alert alert-info mb-4" role="status">
-  Los precios son de referencia y se actualizan al seleccionar una acción. No son datos en tiempo real.
+  Los precios son de referencia, no son datos en tiempo real.
+  {% if ultima_actualizacion %}
+  Última actualización desde Alpha Vantage: {{ ultima_actualizacion }}.
+  {% else %}
+  Todavía no hay datos de mercado reales: se muestran precios de referencia simulados.
+  {% endif %}
 </div>
 
 <div class="row g-4">
@@ -31,7 +36,7 @@
         </thead>
         <tbody>
           {% for accion in catalogo %}
-          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" role="button">
+          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}" role="button">
             <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
             <td>{{ accion.nombre_empresa }}</td>
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
@@ -51,7 +56,7 @@
       </table>
     </div>
     {% if catalogo|selectattr('cambio_real', 'equalto', false)|list %}
-    <p class="text-muted small mt-2 mb-0">Las filas marcadas con * usan un % de cambio simulado (sin conexión a datos de mercado en ese momento, por ejemplo por límite de peticiones).</p>
+    <p class="text-muted small mt-2 mb-0">Las filas marcadas con * usan un % de cambio simulado (todavía no se obtuvo el dato real de esa acción, por ejemplo por el límite de peticiones de Alpha Vantage).</p>
     {% endif %}
     <p class="text-muted d-none" id="sin-resultados-mercado">No encontramos acciones con esa búsqueda.</p>
     <nav class="d-none d-flex align-items-center justify-content-between mt-3" id="paginacion-mercado" aria-label="Paginación de acciones">
@@ -157,7 +162,6 @@
       fila.dataset.riesgoPuntaje = datos.riesgo_calculado;
       fila.dataset.volatilidad = datos.volatilidad_porcentaje;
       fila.dataset.nombreCompleto = datos.nombre_empresa;
-      fila.dataset.precio = datos.precio_unitario;
     } catch (error) {
       // Si falla, se deja el guion por defecto
     }
