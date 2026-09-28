@@ -35,7 +35,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   document.querySelectorAll(".auth-toggle-password").forEach(function (boton) {
     boton.addEventListener("click", function () {
       var input = document.getElementById(boton.dataset.toggleTarget);

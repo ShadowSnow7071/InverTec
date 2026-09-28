@@ -152,7 +152,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   const adminResultado = document.getElementById("admin-resultado");
 
   function tokenCsrf() {

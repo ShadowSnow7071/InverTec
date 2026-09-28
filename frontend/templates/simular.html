@@ -119,7 +119,7 @@
 
 {% block scripts %}
 <script id="datos-posiciones-disponibles" type="application/json">{{ posiciones_disponibles | tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce }}">
   const btnComprar = document.getElementById("btn-comprar");
   const btnVender = document.getElementById("btn-vender");
   const accionOperacion = document.getElementById("accion-operacion");
