@@ -62,7 +62,25 @@ Esto construye la imagen con `Docker/Dockerfile`, corre `flask db upgrade` y lev
 2. En GitHub: **Settings → Secrets and variables → Actions → New repository secret**, nombre `RAILWAY_TOKEN`, valor el token generado.
 3. De ahí en adelante, cada push a `main` que pase el workflow `CI` dispara automáticamente `CD`, que corre `railway up --service invertec --detach` sin intervención manual.
 
-**Gotcha conocido**: versiones del Railway CLI `>=5.3.0` han tenido reportes de romper la autenticación por project-token dentro de GitHub Actions (`Not signed in.`). Por eso `cd.yml` fija la versión con `npm install -g @railway/cli@5.2.0`, en vez de instalar `latest`.
+**Gotcha conocido**: versiones del Railway CLI `>=5.3.0` han tenido reportes de romper la autenticación por project-token dentro de GitHub Actions (`Not signed in.`). Por eso `cd.yml` fija la versión (`RAILWAY_VERSION=5.2.0`) en vez de instalar `latest`.
+
+**Instalación del CLI en CD (verificada por checksum)**: `cd.yml` no usa `npm` (el paquete `@railway/cli` depende de un script `postinstall`, y SonarCloud marcaba la instalación sin `--ignore-scripts`, que a su vez habría roto el CLI). En su lugar descarga el `install.sh` oficial fijado a un commit concreto de `railwayapp/cli` y comprueba su `sha256` con `sha256sum -c` antes de ejecutarlo, en respuesta al hallazgo *"Avoid executing downloaded artifacts directly without verification"*. Si se cambia la versión del CLI o el commit del instalador, hay que recalcular el hash y actualizar `RAILWAY_INSTALL_COMMIT` y `RAILWAY_INSTALL_SHA256` en `cd.yml`:
+
+```
+curl -fsSL https://raw.githubusercontent.com/railwayapp/cli/<commit>/install.sh | sha256sum
+```
+
+## Dependencias y build reproducible
+
+- `requirements.in` es la fuente de verdad: solo las dependencias directas, con versión exacta (`==`).
+- `requirements.txt` está **generado** con `pip-compile --generate-hashes` a partir del anterior e incluye todas las dependencias transitivas con su hash `sha256`; no se edita a mano.
+- Tanto `ci.yml` como el `Dockerfile` instalan con `pip install --only-binary :all: --require-hashes -r requirements.txt`: solo se aceptan wheels precompilados (no se ejecutan scripts de `setup.py`) y cualquier paquete cuyo hash no coincida hace fallar la instalación.
+- Para actualizar una dependencia: cambiar la versión en `requirements.in`, regenerar `requirements.txt` con `pip-compile --generate-hashes --output-file=requirements.txt requirements.in`, y volver a correr las pruebas. **Conviene compilar con Python 3.12**, la misma versión que usan CI y el contenedor (`python:3.12-slim`), para que los marcadores de entorno del lockfile correspondan al entorno real de ejecución.
+- El `Dockerfile` ya no hace `COPY . .`: copia únicamente `backend/`, `frontend/`, `database/migrations/` y `Docker/entrypoint.sh`, de modo que `.env`, `tests/`, `Documentación/` y demás archivos de desarrollo nunca llegan a la imagen.
+
+### Variables solo para desarrollo local
+
+`docker-compose.yml` (solo desarrollo local, Railway no lo lee) exige en tu `.env` las variables `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` y `MYSQL_ROOT_PASSWORD` (ver `.env.example`). Como `MYSQL_USER` y `MYSQL_PASSWORD` también se usan para armar la `DATABASE_URL` del contenedor `web`, la contraseña **no debe incluir caracteres propios de una URL** (`@`, `:`, `/`, `#`, `%`, espacios), o la conexión se interpreta mal. Si se cambia la contraseña después del primer arranque, hay que recrear el volumen (`docker compose down -v`), porque MySQL solo toma esas variables al inicializar la base.
 
 ## Crear el primer usuario administrador
 
