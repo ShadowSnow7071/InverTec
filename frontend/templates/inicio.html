@@ -104,7 +104,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   // Tour de bienvenida, solo aparece justo después de registrarse
   (function () {
     const parametros = new URLSearchParams(window.location.search);

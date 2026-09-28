@@ -91,3 +91,5 @@ pytest --cov=backend --cov-report=term-missing
 - [DB_SCHEMA.md](Documentación/DB_SCHEMA.md)
 - [API_CONVENTIONS.md](Documentación/API_CONVENTIONS.md)
 - [DEPLOY.md](Documentación/DEPLOY.md)
+- [RUNBOOK_DESPLIEGUE.md](Documentación/RUNBOOK_DESPLIEGUE.md)
+- [MONITOREO.md](Documentación/MONITOREO.md)

@@ -72,7 +72,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   const buscarAcciones = document.getElementById("buscar-acciones");
   const sinResultadosMercado = document.getElementById("sin-resultados-mercado");
   const detalleAccion = document.getElementById("detalle-accion");
