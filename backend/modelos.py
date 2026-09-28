@@ -123,3 +123,24 @@ class Movimiento(db.Model):
 
     portafolio: Mapped[Portafolio] = relationship(back_populates="movimientos")
     accion: Mapped[Accion] = relationship(back_populates="movimientos")
+
+class Cotizacion(db.Model):
+    """Última cotización conocida de cada acción del catálogo.
+
+    Es la ÚNICA fuente de precios de la app: Mercado, Simular, Inicio, Análisis
+    y la ejecución de compras/ventas leen de aquí, así todos los workers de
+    Gunicorn ven exactamente el mismo valor. Solo el proceso de refresco
+    (ver AccionServicio.refrescar_cotizaciones) escribe en esta tabla.
+    """
+
+    __tablename__ = "cotizacion"
+
+    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
+    precio: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    cambio_porcentaje: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    # Momento (UTC) en que se obtuvo el dato REAL de Alpha Vantage. NULL significa
+    # que nunca se ha obtenido: el precio es el de referencia simulado.
+    actualizado_en: Mapped[datetime | None] = mapped_column(DateTime)
+    # Último intento de refresco (con o sin éxito). Evita reintentar en cada
+    # visita cuando Alpha Vantage está fallando o se agotó el límite diario.
+    ultimo_intento_en: Mapped[datetime | None] = mapped_column(DateTime)

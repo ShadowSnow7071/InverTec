@@ -86,3 +86,13 @@ CREATE TABLE movimiento (
     FOREIGN KEY (accion_id) REFERENCES accion(id)
 );
 ```
+
+### Cotizacion
+Fuente única de precios de la app; solo la escribe el proceso de refresco.
+| Campo | Tipo | Notas |
+|---|---|---|
+| ticker | VARCHAR(10), PK | ej. AAPL; una fila por acción del catálogo, sembrada por la migración 005 |
+| precio | DECIMAL(12,2) | último precio conocido |
+| cambio_porcentaje | DECIMAL(7,2), NULL | cambio % del día según Alpha Vantage |
+| actualizado_en | DATETIME (UTC), NULL | cuándo se obtuvo el dato REAL; NULL = solo hay precio de referencia simulado |
+| ultimo_intento_en | DATETIME (UTC), NULL | último intento de refresco, con o sin éxito (evita reintentar en cada visita) |

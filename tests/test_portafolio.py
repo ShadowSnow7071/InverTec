@@ -1,9 +1,10 @@
 import json
 import re
+from datetime import datetime
 from decimal import Decimal
 
 from backend.conexion import db
-from backend.modelos import Accion, Movimiento, Portafolio, TipoMovimiento, Usuario
+from backend.modelos import Accion, Cotizacion, Movimiento, Portafolio, TipoMovimiento, Usuario
 
 
 def registrar_y_obtener_token(client, correo):
@@ -515,3 +516,30 @@ def test_simular_sin_posiciones_embebe_diccionario_vacio(client):
     assert respuesta.status_code == 200
     posiciones = _extraer_posiciones_disponibles(respuesta.get_data(as_text=True))
     assert posiciones == {}
+
+
+def test_analisis_refleja_la_ganancia_cuando_la_cotizacion_guardada_cambia(client, app, monkeypatch):
+    # Regresión del "G/P en ceros en Análisis": la valuación usa la misma fila de
+    # `cotizacion` que todo lo demás, así que cuando el precio guardado sube, la
+    # ganancia aparece (antes cada worker de Gunicorn valuaba con un precio distinto).
+    monkeypatch.delenv("MARKET_DATA_API_KEY", raising=False)
+    token = registrar_y_obtener_token(client, "gp_analisis@example.com")
+    riesgo = _consultar_riesgo(client, token, "AAPL", "2")
+    compra = client.post(
+        "/api/portafolio/comprar",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"ticker": "AAPL", "cantidad": "2", "riesgo_calculado": riesgo},
+    )
+    assert compra.status_code == 200  # comprado a 214.20 (referencia simulada)
+
+    with app.app_context():
+        db.session.add(Cotizacion(ticker="AAPL", precio=Decimal("250.00"), actualizado_en=datetime.now()))
+        db.session.commit()
+
+    respuesta = client.get("/api/portafolio/analisis", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert cuerpo["posiciones_detalle"][0]["precio_actual"] == 250.0
+    assert cuerpo["capital_invertido"] == 428.4
+    assert cuerpo["ganancia_perdida"] == 71.6

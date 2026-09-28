@@ -154,12 +154,14 @@ def perfil():
 @jwt_required()
 def mercado():
     usuario = current_user
-    catalogo = acciones.listar_catalogo(precios_reales=True)
+    catalogo = acciones.listar_catalogo()
+    ultima = acciones.ultima_actualizacion()
     return render_template(
         "mercado.html",
         seccion_activa="mercado",
         usuario_actual=usuario,
         catalogo=catalogo,
+        ultima_actualizacion=ultima.strftime("%d/%m/%Y %H:%M UTC") if ultima else None,
     )
 
 
@@ -182,7 +184,7 @@ def historial():
 @jwt_required()
 def simular():
     usuario = current_user
-    catalogo = acciones.listar_catalogo(precios_reales=False)
+    catalogo = acciones.listar_catalogo()
     usuario_id = int(get_jwt_identity())
     saldo_virtual = portafolio.obtener_saldo(usuario_id)
     datos_portafolio = portafolio.obtener(usuario_id)

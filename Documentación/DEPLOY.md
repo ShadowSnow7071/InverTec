@@ -28,7 +28,8 @@ Guía de despliegue en producción. Documenta el proceso real ya ejecutado contr
 | `RESEND_FROM_EMAIL` | `onboarding@resend.dev` | Remitente sandbox, ver limitación arriba. |
 | `APP_BASE_URL` | URL pública generada por Railway (ver siguiente sección) | Se usa para construir los links de recuperación de contraseña. |
 | `MARKET_DATA_API_KEY` | API key de Alpha Vantage | Opcional, ver arriba. |
-| `MARKET_DATA_CACHE_SEGUNDOS` | Opcional, por defecto `43200` (12h) | Cuánto se cachea cada cotización (real o simulada) antes de volver a consultar la API externa. |
+| `MARKET_DATA_CACHE_SEGUNDOS` | Opcional, por defecto `43200` (12h) | Vigencia de una cotización real guardada en la tabla `cotizacion` antes de pedirla de nuevo a Alpha Vantage. Con la key gratuita (25 peticiones/día, 9 por refresco) no bajar de 12h. |
+| `MARKET_DATA_REINTENTO_SEGUNDOS` | Opcional, por defecto `900` (15 min) | Espera antes de reintentar una acción cuyo refresco falló. |
 | `WEB_CONCURRENCY` | `2` | Número de workers de Gunicorn. |
 
 ## Configuración inicial en Railway
