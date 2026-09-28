@@ -19,11 +19,6 @@ def create_app(config_name=None):
     config_cls.validate()
     app.config.from_object(config_cls)
 
-    if app.config.get("TESTING"):
-        from backend.servicios.acciones import AccionServicio
-
-        AccionServicio.limpiar_cache()
-
     db.init_app(app)
     migrate.init_app(app, db, directory=str(RAIZ / "database" / "migrations"))
     jwt.init_app(app)
@@ -42,6 +37,10 @@ def create_app(config_name=None):
     app.register_blueprint(api_acciones_bp)
     app.register_blueprint(api_portafolio_bp)
     app.register_blueprint(api_usuarios_bp)
+
+    from backend.comandos import registrar_comandos
+
+    registrar_comandos(app)
 
     from flask_jwt_extended import current_user, verify_jwt_in_request
 

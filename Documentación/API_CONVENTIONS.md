@@ -29,12 +29,21 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 ## Acciones (catálogo de mercado)
 - `GET /api/acciones` — catálogo de acciones disponibles para simular
 - `GET /api/acciones/{ticker}` — detalle de una acción: nombre, precio actual, cambio porcentual y volatilidad
-- `GET /api/acciones/{ticker}/precio` — precio actual de una acción vía la API externa
+- `GET /api/acciones/{ticker}/precio` — precio vigente de una acción (el último guardado en la tabla `cotizacion`)
 
-El proveedor externo se configura con `MARKET_DATA_API_KEY`. Sin esa variable, o si la
-llamada externa falla (por ejemplo, por el límite de peticiones gratuitas), la aplicación
-usa precio y cambio porcentual demo para permitir pruebas locales sin depender de Internet;
-en ese caso el catálogo de `/api/acciones` marca cada acción con `cambio_real: false`.
+**Fuente única de precios.** Todos los precios que muestra o usa la app (Mercado, Simular,
+Inicio, Análisis y la ejecución de compras/ventas) salen de la tabla `cotizacion`, así que
+todos los workers de Gunicorn ven el mismo valor. Ninguna petición del usuario llama a
+Alpha Vantage: el refresco corre aparte, en segundo plano, cuando una cotización vence
+(`MARKET_DATA_CACHE_SEGUNDOS`, 12 h por defecto), o a mano con `flask actualizar-cotizaciones`
+(`--forzar` para todo el catálogo). Un solo worker gana el refresco de cada acción mediante
+un `UPDATE` atómico. Si Alpha Vantage falla (por ejemplo, por el límite de 25 peticiones/día
+del plan gratuito) se conserva el último dato real y se reintenta tras
+`MARKET_DATA_REINTENTO_SEGUNDOS`; nunca se reemplaza un dato real por uno simulado.
+
+Mientras una acción no tenga dato real, se sirve su precio de referencia simulado y las
+respuestas lo indican: `precio_real: false` / `cambio_real: false`. Cuando lo tiene,
+`actualizado_en` trae la fecha UTC (ISO 8601) del dato.
 
 ## Reglas generales
 - Rutas bajo `/api/*` devuelven JSON. Rutas fuera de `/api/*` (login, registro, simulador) devuelven HTML vía Jinja2.

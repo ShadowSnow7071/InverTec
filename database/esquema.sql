@@ -37,3 +37,11 @@ CREATE TABLE movimiento (
     FOREIGN KEY (portafolio_id) REFERENCES portafolio(id),
     FOREIGN KEY (accion_id) REFERENCES accion(id)
 );
+
+CREATE TABLE cotizacion (
+    ticker VARCHAR(10) PRIMARY KEY,
+    precio DECIMAL(12,2) NOT NULL,
+    cambio_porcentaje DECIMAL(7,2),
+    actualizado_en DATETIME,
+    ultimo_intento_en DATETIME
+);

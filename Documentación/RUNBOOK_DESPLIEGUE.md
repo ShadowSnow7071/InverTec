@@ -35,7 +35,7 @@ flowchart TB
 
 **Flujo de despliegue**: push a `main` → `CI` corre las pruebas → si pasa, `CD` se dispara automáticamente vía `workflow_run` → el Railway CLI construye la imagen con `Docker/Dockerfile` y la despliega al servicio `invertec` → el contenedor corre `flask db upgrade` antes de levantar Gunicorn.
 
-**Flujo de una petición**: el usuario llega al dominio público de Railway (proxy/TLS lo maneja Railway) → Gunicorn reparte la petición entre sus workers → Flask ejecuta la ruta correspondiente → SQLAlchemy consulta MySQL → si la ruta es del catálogo de Mercado y hay `MARKET_DATA_API_KEY`, se consulta Alpha Vantage (con caché de 12h por ticker); si no, se sirve el fallback simulado.
+**Flujo de una petición**: el usuario llega al dominio público de Railway (proxy/TLS lo maneja Railway) → Gunicorn reparte la petición entre sus workers → Flask ejecuta la ruta correspondiente → SQLAlchemy consulta MySQL → los precios se leen siempre de la tabla `cotizacion` (una sola fuente para todos los workers); si la ruta es del catálogo (Mercado/Simular), hay `MARKET_DATA_API_KEY` y alguna cotización venció (12h), un solo worker la refresca desde Alpha Vantage en segundo plano, sin retrasar la página; si no hay dato real se sirve el precio de referencia simulado.
 
 ## Runbook operativo
 

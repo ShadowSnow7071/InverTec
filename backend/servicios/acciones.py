@@ -1,11 +1,18 @@
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 import os
+import threading
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from flask import current_app
+from sqlalchemy import func, or_, select, update
+
+from backend.conexion import db
+from backend.modelos import Cotizacion
 from backend.servicios.auth import ErrorNegocio
 
 CATALOGO = {
@@ -34,17 +41,38 @@ PRECIOS_BASE = {
 
 
 class AccionServicio:
-    _precios_cache = {}
-    
-    _CACHE_SEGUNDOS_DEFECTO = 60 * 60 * 12
+    """Precios del catálogo.
+
+    Regla de oro: los precios SOLO se leen de la tabla `cotizacion` (una fuente
+    única en la base de datos, compartida por todos los workers de Gunicorn).
+    Nunca se llama a Alpha Vantage durante una petición del usuario; eso lo hace
+    el proceso de refresco, en segundo plano o con `flask actualizar-cotizaciones`.
+    """
+
+    # Vigencia de una cotización real: pasado este tiempo se vuelve a pedir a
+    # Alpha Vantage. El plan gratuito permite 25 peticiones/día y el catálogo
+    # tiene 9 acciones (9 peticiones por refresco), así que 12 h es el mínimo
+    # sostenible: 2 refrescos/día = 18 peticiones.
+    _VIGENCIA_SEGUNDOS_DEFECTO = 60 * 60 * 12
+    # Si un refresco falla (límite agotado, red caída), no se reintenta hasta
+    # que pasen estos segundos, para no gastar peticiones en cada visita.
+    _REINTENTO_SEGUNDOS_DEFECTO = 60 * 15
+    # Alpha Vantage limita a ~1 petición por segundo en el plan gratuito.
+    _PAUSA_ENTRE_PETICIONES = 1.2
 
     @classmethod
-    def _cache_segundos(cls):
-        return int(os.environ.get("MARKET_DATA_CACHE_SEGUNDOS", cls._CACHE_SEGUNDOS_DEFECTO))
+    def _vigencia_segundos(cls):
+        # Misma variable de entorno de siempre, para no romper la config de Railway.
+        return int(os.environ.get("MARKET_DATA_CACHE_SEGUNDOS", cls._VIGENCIA_SEGUNDOS_DEFECTO))
 
     @classmethod
-    def limpiar_cache(cls):
-        cls._precios_cache.clear()
+    def _reintento_segundos(cls):
+        return int(os.environ.get("MARKET_DATA_REINTENTO_SEGUNDOS", cls._REINTENTO_SEGUNDOS_DEFECTO))
+
+    @staticmethod
+    def _ahora():
+        # UTC "ingenuo" (sin tzinfo), como se guardan las fechas en MySQL.
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     @staticmethod
     def _cotizacion_externa(ticker: str):
@@ -80,49 +108,209 @@ class AccionServicio:
 
     @staticmethod
     def _cambio_demo(ticker: str):
-        # Sin API key: cambio simulado pero estable por ticker (mismo valor en cada carga),
-        # NO son datos de mercado reales.
+        # Cambio simulado pero estable por ticker (mismo valor en cada carga),
+        # NO son datos de mercado reales. Solo se usa mientras no hay dato real.
         semilla = sum(ord(caracter) for caracter in ticker)
         return str(Decimal((semilla % 400) - 200) / Decimal("100"))
 
+    # ---- Lectura (única vía por la que la app obtiene precios) -------------
+
+    @staticmethod
+    def _columnas_cotizacion():
+        return (
+            Cotizacion.ticker,
+            Cotizacion.precio,
+            Cotizacion.cambio_porcentaje,
+            Cotizacion.actualizado_en,
+            Cotizacion.ultimo_intento_en,
+        )
+
+    @classmethod
+    def _leer_filas(cls):
+        # Se devuelven filas planas (no objetos ORM), así un commit posterior no
+        # las "expira" ni obliga a volver a consultar la base.
+        filas = db.session.execute(select(*cls._columnas_cotizacion())).all()
+        return {fila.ticker: fila for fila in filas}
+
+    @classmethod
+    def _leer_fila(cls, ticker: str):
+        return db.session.execute(
+            select(*cls._columnas_cotizacion()).where(Cotizacion.ticker == ticker)
+        ).first()
+
+    @classmethod
+    def _fila_a_cotizacion(cls, ticker: str, fila):
+        if fila is None:
+            # Fila ausente (p. ej. BD sin sembrar): se usa la referencia simulada.
+            return {
+                "precio": PRECIOS_BASE[ticker],
+                "cambio_porcentaje": cls._cambio_demo(ticker),
+                "real": False,
+                "cambio_real": False,
+                "actualizado_en": None,
+            }
+        real = fila.actualizado_en is not None
+        cambio_real = real and fila.cambio_porcentaje is not None
+        return {
+            "precio": str(Decimal(fila.precio).quantize(Decimal("0.01"))),
+            "cambio_porcentaje": (
+                str(Decimal(fila.cambio_porcentaje).quantize(Decimal("0.01")))
+                if fila.cambio_porcentaje is not None
+                else cls._cambio_demo(ticker)
+            ),
+            "real": real,
+            "cambio_real": cambio_real,
+            "actualizado_en": fila.actualizado_en,
+        }
+
     @classmethod
     def _cotizacion(cls, ticker: str):
-        if not os.environ.get("MARKET_DATA_API_KEY"):
-            return {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
-
-        guardado = cls._precios_cache.get(ticker)
-        if guardado and time.monotonic() - guardado[0] < cls._cache_segundos():
-            return guardado[1]
-
-        cotizacion = cls._cotizacion_externa(ticker)
-        if cotizacion is not None:
-            resultado = {**cotizacion, "real": True}
-        else:
-            resultado = {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
-        cls._precios_cache[ticker] = (time.monotonic(), resultado)
-        return resultado
+        return cls._fila_a_cotizacion(ticker, cls._leer_fila(ticker))
 
     @classmethod
     def _precio_actual(cls, ticker: str):
         return cls._cotizacion(ticker)["precio"]
 
     @classmethod
-    def listar_catalogo(cls, precios_reales=True):
+    def ultima_actualizacion(cls):
+        """Fecha (UTC) del dato real más reciente, o None si aún no hay ninguno."""
+        return db.session.scalar(select(func.max(Cotizacion.actualizado_en)))
+
+    @staticmethod
+    def _iso_utc(momento):
+        return momento.isoformat() + "Z" if momento is not None else None
+
+    # ---- Refresco (única vía por la que se llama a Alpha Vantage) ----------
+
+    @classmethod
+    def _esta_vencida(cls, fila, limite_vigencia):
+        return fila is None or fila.actualizado_en is None or fila.actualizado_en < limite_vigencia
+
+    @classmethod
+    def _descargar_y_guardar(cls, tickers, pausa=None):
+        """Pide a Alpha Vantage cada ticker y guarda SOLO los que llegan bien.
+
+        Un fallo nunca pisa un dato real anterior con uno simulado. Al primer
+        fallo se detiene el lote: si Alpha Vantage rechaza una petición (límite
+        diario agotado) rechazará las demás, y así no se gastan peticiones.
+        """
+        pausa = cls._PAUSA_ENTRE_PETICIONES if pausa is None else pausa
+        actualizadas, fallidas, sin_intentar = [], [], []
+        for indice, ticker in enumerate(tickers):
+            if indice:
+                time.sleep(pausa)
+            cotizacion = cls._cotizacion_externa(ticker)
+            if cotizacion is None:
+                fallidas.append(ticker)
+                sin_intentar = list(tickers[indice + 1:])
+                break
+            fila = db.session.get(Cotizacion, ticker)
+            if fila is None:
+                fila = Cotizacion(ticker=ticker)
+                db.session.add(fila)
+            ahora = cls._ahora()
+            fila.precio = Decimal(cotizacion["precio"])
+            fila.cambio_porcentaje = (
+                Decimal(cotizacion["cambio_porcentaje"])
+                if cotizacion["cambio_porcentaje"] is not None
+                else None
+            )
+            fila.actualizado_en = ahora
+            fila.ultimo_intento_en = ahora
+            db.session.commit()
+            actualizadas.append(ticker)
+        return {"actualizadas": actualizadas, "fallidas": fallidas, "sin_intentar": sin_intentar}
+
+    @classmethod
+    def refrescar_cotizaciones(cls, forzar=False, pausa=None):
+        """Refresco síncrono (lo usa `flask actualizar-cotizaciones`).
+
+        Sin `forzar` solo pide las acciones cuya cotización ya venció; con
+        `forzar` pide las del catálogo completo.
+        """
+        filas = cls._leer_filas()
+        limite = cls._ahora() - timedelta(seconds=cls._vigencia_segundos())
+        tickers = [
+            ticker for ticker in sorted(CATALOGO)
+            if forzar or cls._esta_vencida(filas.get(ticker), limite)
+        ]
+        return cls._descargar_y_guardar(tickers, pausa)
+
+    @classmethod
+    def _reclamar_vencidas(cls, filas):
+        """Reclama con un UPDATE atómico las cotizaciones que este proceso debe refrescar.
+
+        Entre varios workers, solo el que gana el UPDATE (rowcount == 1) pide esa
+        acción a Alpha Vantage; los demás siguen sirviendo el dato guardado.
+        Hace commit, así que SOLO debe llamarse desde rutas de lectura
+        (nunca en medio de una compra/venta, que tiene una fila bloqueada).
+        """
+        ahora = cls._ahora()
+        limite_vigencia = ahora - timedelta(seconds=cls._vigencia_segundos())
+        limite_reintento = ahora - timedelta(seconds=cls._reintento_segundos())
+        ganadas = []
+        for ticker, fila in sorted(filas.items()):
+            toca_reintentar = fila.ultimo_intento_en is None or fila.ultimo_intento_en < limite_reintento
+            if not (cls._esta_vencida(fila, limite_vigencia) and toca_reintentar):
+                continue
+            resultado = db.session.execute(
+                update(Cotizacion)
+                .where(Cotizacion.ticker == ticker)
+                .where(or_(Cotizacion.actualizado_en.is_(None), Cotizacion.actualizado_en < limite_vigencia))
+                .where(or_(Cotizacion.ultimo_intento_en.is_(None), Cotizacion.ultimo_intento_en < limite_reintento))
+                .values(ultimo_intento_en=ahora)
+            )
+            db.session.commit()
+            if resultado.rowcount == 1:
+                ganadas.append(ticker)
+        return ganadas
+
+    @classmethod
+    def _refrescar_en_segundo_plano(cls, tickers):
+        app = current_app._get_current_object()
+
+        def tarea():
+            with app.app_context():
+                try:
+                    resumen = cls._descargar_y_guardar(tickers)
+                    app.logger.info("Refresco de cotizaciones: %s", resumen)
+                except Exception:
+                    app.logger.exception("Falló el refresco de cotizaciones")
+                finally:
+                    db.session.remove()
+
+        threading.Thread(target=tarea, name="refresco-cotizaciones", daemon=True).start()
+
+    @classmethod
+    def _programar_refresco(cls, filas):
+        # Sin API key (desarrollo local) o en pruebas no hay nada que refrescar.
+        if not os.environ.get("MARKET_DATA_API_KEY") or current_app.config.get("TESTING"):
+            return
+        ganadas = cls._reclamar_vencidas(filas)
+        if ganadas:
+            cls._refrescar_en_segundo_plano(ganadas)
+
+    # ---- Consultas públicas ------------------------------------------------
+
+    @classmethod
+    def listar_catalogo(cls):
+        filas = cls._leer_filas()
         resultado = []
         for ticker, datos in sorted(CATALOGO.items()):
-            if precios_reales:
-                cotizacion = cls._cotizacion(ticker)
-            else:
-                cotizacion = {"precio": PRECIOS_BASE[ticker], "cambio_porcentaje": cls._cambio_demo(ticker), "real": False}
+            cotizacion = cls._fila_a_cotizacion(ticker, filas.get(ticker))
             resultado.append(
                 {
                     "ticker": ticker,
                     "nombre_empresa": datos["nombre_empresa"],
                     "precio_actual": cotizacion["precio"],
                     "cambio_porcentaje": cotizacion["cambio_porcentaje"],
-                    "cambio_real": cotizacion["real"],
+                    "cambio_real": cotizacion["cambio_real"],
+                    "precio_real": cotizacion["real"],
+                    "actualizado_en": cls._iso_utc(cotizacion["actualizado_en"]),
                 }
             )
+        # Después de armar la respuesta: el refresco corre aparte y no retrasa la página.
+        cls._programar_refresco(filas)
         return resultado
 
     @classmethod
@@ -137,7 +325,9 @@ class AccionServicio:
             "nombre_empresa": CATALOGO[clave]["nombre_empresa"],
             "precio_actual": cotizacion["precio"],
             "cambio_porcentaje": cotizacion["cambio_porcentaje"],
-            "cambio_real": cotizacion["real"],
+            "cambio_real": cotizacion["cambio_real"],
+            "precio_real": cotizacion["real"],
+            "actualizado_en": cls._iso_utc(cotizacion["actualizado_en"]),
             "volatilidad": str(volatilidad.quantize(Decimal("0.01"))),
         }
 
