@@ -32,11 +32,12 @@
             <th class="text-end">Precio ref.</th>
             <th class="text-end">Cambio</th>
             <th class="text-end">Volatilidad</th>
+            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
           {% for accion in catalogo %}
-          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}" role="button">
+          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}">
             <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
             <td>{{ accion.nombre_empresa }}</td>
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
@@ -50,6 +51,11 @@
               {% endif %}
             </td>
             <td class="text-end"><span class="badge text-bg-secondary" data-volatilidad-badge>—</span></td>
+            <td class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-ver-detalle>
+                Ver detalle<span class="visually-hidden"> de {{ accion.ticker }}</span>
+              </button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -200,7 +206,7 @@
   }
 
   document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
-    fila.addEventListener("click", () => mostrarDetalle(fila));
+    fila.querySelector("[data-ver-detalle]").addEventListener("click", () => mostrarDetalle(fila));
   });
 </script>
 {% endblock %}
