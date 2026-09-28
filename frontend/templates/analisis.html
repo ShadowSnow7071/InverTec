@@ -87,7 +87,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   let chartDistribucion = null;
   let chartVolatilidad = null;
 

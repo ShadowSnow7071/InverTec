@@ -1,3 +1,5 @@
+import json
+import re
 from decimal import Decimal
 
 from backend.conexion import db
@@ -468,3 +470,48 @@ def test_obtener_saldo_de_usuario_sin_portafolio_es_none(app):
         saldo = PortafolioServicio().obtener_saldo(999999)
 
     assert saldo is None
+
+
+def _extraer_posiciones_disponibles(contenido_html):
+    coincidencia = re.search(
+        r'id="datos-posiciones-disponibles" type="application/json">(.*?)</script>',
+        contenido_html,
+        re.DOTALL,
+    )
+    assert coincidencia is not None, "No se encontró el <script> de posiciones_disponibles en /simular"
+    return json.loads(coincidencia.group(1))
+
+
+def test_simular_incluye_posiciones_disponibles_en_json_embebido(client, app):
+    token = registrar_y_obtener_token(client, "posiciones_simular@example.com")
+    with app.app_context():
+        usuario = db.session.query(Usuario).one()
+        accion = Accion(ticker="MSFT", nombre_empresa="Microsoft")
+        db.session.add(accion)
+        db.session.flush()
+        db.session.add(
+            Movimiento(
+                portafolio_id=usuario.portafolio.id,
+                accion_id=accion.id,
+                tipo=TipoMovimiento.compra,
+                cantidad=Decimal("4.0000"),
+                precio_unitario=Decimal("300.00"),
+            )
+        )
+        db.session.commit()
+
+    respuesta = client.get("/simular", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 200
+    posiciones = _extraer_posiciones_disponibles(respuesta.get_data(as_text=True))
+    assert posiciones == {"MSFT": "4.0000"}
+
+
+def test_simular_sin_posiciones_embebe_diccionario_vacio(client):
+    token = registrar_y_obtener_token(client, "sin_posiciones_simular@example.com")
+
+    respuesta = client.get("/simular", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 200
+    posiciones = _extraer_posiciones_disponibles(respuesta.get_data(as_text=True))
+    assert posiciones == {}

@@ -2,6 +2,7 @@ import os
 
 from flask import Flask
 
+from backend.cabeceras import registrar_cabeceras_seguridad
 from backend.config import config_by_name
 from backend.conexion import RAIZ, db, jwt, migrate
 
@@ -26,6 +27,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db, directory=str(RAIZ / "database" / "migrations"))
     jwt.init_app(app)
+    registrar_cabeceras_seguridad(app)
 
     from backend import modelos  # noqa: F401
     from backend import seguridad  # noqa: F401

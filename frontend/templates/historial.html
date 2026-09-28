@@ -94,7 +94,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   const filtroTicker = document.getElementById("filtro-ticker");
   const filtroTipo = document.getElementById("filtro-tipo");
   const filtroRiesgo = document.getElementById("filtro-riesgo");
