@@ -48,7 +48,7 @@
         </thead>
         <tbody>
           {% for accion in catalogo %}
-          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}" role="button">
+          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}" tabindex="0">
             <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
             <td>{{ accion.nombre_empresa }}</td>
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
@@ -175,7 +175,7 @@
       fila.dataset.volatilidad = datos.volatilidad_porcentaje;
       fila.dataset.nombreCompleto = datos.nombre_empresa;
     } catch (error) {
-      // Si falla, se deja el guion por defecto
+      // Si falla la llamada al servidor, se mantiene el guion por defecto sin interrumpir la interfaz
     }
   }
   document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarRiesgo);
@@ -213,6 +213,12 @@
 
   document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
     fila.addEventListener("click", () => mostrarDetalle(fila));
+    fila.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        mostrarDetalle(fila);
+      }
+    });
   });
 
   const btnActualizarMercado = document.getElementById("btn-actualizar-mercado");
@@ -223,7 +229,6 @@
     }
 
     btnActualizarMercado.addEventListener("click", async () => {
-      const icono = document.getElementById("icono-actualizar-mercado");
       btnActualizarMercado.disabled = true;
       const textoOriginal = btnActualizarMercado.innerHTML;
       btnActualizarMercado.innerHTML = "Actualizando…";
