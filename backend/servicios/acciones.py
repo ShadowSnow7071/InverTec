@@ -43,13 +43,17 @@ PRECIOS_BASE = {
 class AccionServicio:
 
     _VIGENCIA_SEGUNDOS_DEFECTO = 60 * 60 * 12
+
     _REINTENTO_SEGUNDOS_DEFECTO = 60 * 15
+
     _ENFRIAMIENTO_MANUAL_SEGUNDOS = 60 * 5
+    
     _PAUSA_ENTRE_PETICIONES = 1.2
 
     @staticmethod
     def _segundos_de_entorno(nombre, defecto):
-
+        # Una variable vacía (`NOMBRE=`), con texto o con un número <= 0 no debe
+        # tumbar la app: en esos casos se usa el valor por defecto.
         try:
             valor = int(os.environ.get(nombre, "").strip())
         except ValueError:
@@ -238,6 +242,15 @@ class AccionServicio:
 
         return cls.refrescar_cotizaciones(forzar=True), None
 
+    @classmethod
+    def _reclamar_vencidas(cls, filas):
+        """Reclama con un UPDATE atómico las cotizaciones que este proceso debe refrescar.
+
+        Entre varios workers, solo el que gana el UPDATE (rowcount == 1) pide esa
+        acción a Alpha Vantage; los demás siguen sirviendo el dato guardado.
+        Hace commit, así que SOLO debe llamarse desde rutas de lectura
+        (nunca en medio de una compra/venta, que tiene una fila bloqueada).
+        """
         ahora = cls._ahora()
         limite_vigencia = ahora - timedelta(seconds=cls._vigencia_segundos())
         limite_reintento = ahora - timedelta(seconds=cls._reintento_segundos())
