@@ -41,33 +41,33 @@ PRECIOS_BASE = {
 
 
 class AccionServicio:
-    """Precios del catálogo.
 
-    Regla de oro: los precios SOLO se leen de la tabla `cotizacion` (una fuente
-    única en la base de datos, compartida por todos los workers de Gunicorn).
-    Nunca se llama a Alpha Vantage durante una petición del usuario; eso lo hace
-    el proceso de refresco, en segundo plano o con `flask actualizar-cotizaciones`.
-    """
-
-    # Vigencia de una cotización real: pasado este tiempo se vuelve a pedir a
-    # Alpha Vantage. El plan gratuito permite 25 peticiones/día y el catálogo
-    # tiene 9 acciones (9 peticiones por refresco), así que 12 h es el mínimo
-    # sostenible: 2 refrescos/día = 18 peticiones.
     _VIGENCIA_SEGUNDOS_DEFECTO = 60 * 60 * 12
-    # Si un refresco falla (límite agotado, red caída), no se reintenta hasta
-    # que pasen estos segundos, para no gastar peticiones en cada visita.
+
     _REINTENTO_SEGUNDOS_DEFECTO = 60 * 15
-    # Alpha Vantage limita a ~1 petición por segundo en el plan gratuito.
+
+    _ENFRIAMIENTO_MANUAL_SEGUNDOS = 60 * 5
+    
     _PAUSA_ENTRE_PETICIONES = 1.2
+
+    @staticmethod
+    def _segundos_de_entorno(nombre, defecto):
+        # Una variable vacía (`NOMBRE=`), con texto o con un número <= 0 no debe
+        # tumbar la app: en esos casos se usa el valor por defecto.
+        try:
+            valor = int(os.environ.get(nombre, "").strip())
+        except ValueError:
+            return defecto
+        return valor if valor > 0 else defecto
 
     @classmethod
     def _vigencia_segundos(cls):
         # Misma variable de entorno de siempre, para no romper la config de Railway.
-        return int(os.environ.get("MARKET_DATA_CACHE_SEGUNDOS", cls._VIGENCIA_SEGUNDOS_DEFECTO))
+        return cls._segundos_de_entorno("MARKET_DATA_CACHE_SEGUNDOS", cls._VIGENCIA_SEGUNDOS_DEFECTO)
 
     @classmethod
     def _reintento_segundos(cls):
-        return int(os.environ.get("MARKET_DATA_REINTENTO_SEGUNDOS", cls._REINTENTO_SEGUNDOS_DEFECTO))
+        return cls._segundos_de_entorno("MARKET_DATA_REINTENTO_SEGUNDOS", cls._REINTENTO_SEGUNDOS_DEFECTO)
 
     @staticmethod
     def _ahora():
@@ -188,12 +188,7 @@ class AccionServicio:
 
     @classmethod
     def _descargar_y_guardar(cls, tickers, pausa=None):
-        """Pide a Alpha Vantage cada ticker y guarda SOLO los que llegan bien.
 
-        Un fallo nunca pisa un dato real anterior con uno simulado. Al primer
-        fallo se detiene el lote: si Alpha Vantage rechaza una petición (límite
-        diario agotado) rechazará las demás, y así no se gastan peticiones.
-        """
         pausa = cls._PAUSA_ENTRE_PETICIONES if pausa is None else pausa
         actualizadas, fallidas, sin_intentar = [], [], []
         for indice, ticker in enumerate(tickers):
@@ -223,11 +218,7 @@ class AccionServicio:
 
     @classmethod
     def refrescar_cotizaciones(cls, forzar=False, pausa=None):
-        """Refresco síncrono (lo usa `flask actualizar-cotizaciones`).
 
-        Sin `forzar` solo pide las acciones cuya cotización ya venció; con
-        `forzar` pide las del catálogo completo.
-        """
         filas = cls._leer_filas()
         limite = cls._ahora() - timedelta(seconds=cls._vigencia_segundos())
         tickers = [
@@ -235,6 +226,21 @@ class AccionServicio:
             if forzar or cls._esta_vencida(filas.get(ticker), limite)
         ]
         return cls._descargar_y_guardar(tickers, pausa)
+
+    @classmethod
+    def refrescar_manual(cls):
+
+        if not os.environ.get("MARKET_DATA_API_KEY"):
+            return None, "MARKET_DATA_API_KEY no está configurada."
+
+        ultima = cls.ultima_actualizacion()
+        if ultima is not None:
+            transcurridos = (cls._ahora() - ultima).total_seconds()
+            faltan = cls._ENFRIAMIENTO_MANUAL_SEGUNDOS - transcurridos
+            if faltan > 0:
+                return None, f"Espera {int(faltan) + 1}s antes de volver a actualizar."
+
+        return cls.refrescar_cotizaciones(forzar=True), None
 
     @classmethod
     def _reclamar_vencidas(cls, filas):
