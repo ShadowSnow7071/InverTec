@@ -30,6 +30,7 @@ Todos los endpoints van bajo el prefijo `/api`, usan sustantivos en plural, y el
 - `GET /api/acciones` — catálogo de acciones disponibles para simular
 - `GET /api/acciones/{ticker}` — detalle de una acción: nombre, precio actual, cambio porcentual y volatilidad
 - `GET /api/acciones/{ticker}/precio` — precio vigente de una acción (el último guardado en la tabla `cotizacion`)
+- `POST /api/acciones/actualizar` — solo `administrador`. Pide a Alpha Vantage el catálogo completo y lo guarda en `cotizacion` (botón "Actualizar" de Mercado). Responde `429` si se pidió hace menos de 5 minutos, `503` si no hay `MARKET_DATA_API_KEY`
 
 **Fuente única de precios.** Todos los precios que muestra o usa la app (Mercado, Simular,
 Inicio, Análisis y la ejecución de compras/ventas) salen de la tabla `cotizacion`, así que

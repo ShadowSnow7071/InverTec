@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from backend.seguridad import json_error, usuario_actual
+from backend.seguridad import json_error, rol_admin, usuario_actual
 from backend.servicios.acciones import AccionServicio
 from backend.servicios.auth import ErrorNegocio
 
@@ -12,6 +12,25 @@ servicio = AccionServicio()
 @bp.get("/acciones")
 def acciones():
     return jsonify(servicio.listar_catalogo())
+
+
+@bp.post("/acciones/actualizar")
+@rol_admin
+def actualizar_acciones():
+
+    resumen, error = servicio.refrescar_manual()
+    if error is not None:
+        codigo = 429 if error.startswith("Espera") else 503
+        return json_error(error, codigo)
+
+    ultima = servicio.ultima_actualizacion()
+    return jsonify(
+        {
+            "actualizadas": resumen["actualizadas"],
+            "fallidas": resumen["fallidas"],
+            "ultima_actualizacion": ultima.isoformat() + "Z" if ultima else None,
+        }
+    )
 
 
 @bp.get("/acciones/<ticker>")
