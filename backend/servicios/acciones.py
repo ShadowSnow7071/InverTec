@@ -41,32 +41,15 @@ PRECIOS_BASE = {
 
 
 class AccionServicio:
-    """Precios del catálogo.
 
-    Regla de oro: los precios SOLO se leen de la tabla `cotizacion` (una fuente
-    única en la base de datos, compartida por todos los workers de Gunicorn).
-    Nunca se llama a Alpha Vantage durante una petición del usuario; eso lo hace
-    el proceso de refresco, en segundo plano o con `flask actualizar-cotizaciones`.
-    """
-
-    # Vigencia de una cotización real: pasado este tiempo se vuelve a pedir a
-    # Alpha Vantage. El plan gratuito permite 25 peticiones/día y el catálogo
-    # tiene 9 acciones (9 peticiones por refresco), así que 12 h es el mínimo
-    # sostenible: 2 refrescos/día = 18 peticiones.
     _VIGENCIA_SEGUNDOS_DEFECTO = 60 * 60 * 12
-    # Si un refresco falla (límite agotado, red caída), no se reintenta hasta
-    # que pasen estos segundos, para no gastar peticiones en cada visita.
     _REINTENTO_SEGUNDOS_DEFECTO = 60 * 15
-    # Enfriamiento del botón "Actualizar" manual de Mercado, para que un doble
-    # clic (o dos administradores a la vez) no gaste la cuota diaria completa.
     _ENFRIAMIENTO_MANUAL_SEGUNDOS = 60 * 5
-    # Alpha Vantage limita a ~1 petición por segundo en el plan gratuito.
     _PAUSA_ENTRE_PETICIONES = 1.2
 
     @staticmethod
     def _segundos_de_entorno(nombre, defecto):
-        # Una variable vacía (`NOMBRE=`), con texto o con un número <= 0 no debe
-        # tumbar la app: en esos casos se usa el valor por defecto.
+
         try:
             valor = int(os.environ.get(nombre, "").strip())
         except ValueError:
@@ -201,12 +184,7 @@ class AccionServicio:
 
     @classmethod
     def _descargar_y_guardar(cls, tickers, pausa=None):
-        """Pide a Alpha Vantage cada ticker y guarda SOLO los que llegan bien.
 
-        Un fallo nunca pisa un dato real anterior con uno simulado. Al primer
-        fallo se detiene el lote: si Alpha Vantage rechaza una petición (límite
-        diario agotado) rechazará las demás, y así no se gastan peticiones.
-        """
         pausa = cls._PAUSA_ENTRE_PETICIONES if pausa is None else pausa
         actualizadas, fallidas, sin_intentar = [], [], []
         for indice, ticker in enumerate(tickers):
@@ -236,11 +214,7 @@ class AccionServicio:
 
     @classmethod
     def refrescar_cotizaciones(cls, forzar=False, pausa=None):
-        """Refresco síncrono (lo usa `flask actualizar-cotizaciones`).
 
-        Sin `forzar` solo pide las acciones cuya cotización ya venció; con
-        `forzar` pide las del catálogo completo.
-        """
         filas = cls._leer_filas()
         limite = cls._ahora() - timedelta(seconds=cls._vigencia_segundos())
         tickers = [
@@ -251,13 +225,7 @@ class AccionServicio:
 
     @classmethod
     def refrescar_manual(cls):
-        """Refresco manual disparado por el botón 'Actualizar' de Mercado (solo admin).
 
-        A diferencia de `refrescar_cotizaciones`, respeta un enfriamiento fijo
-        desde la última vez que se pidió TODO el catálogo con `forzar=True`,
-        para que un doble clic no queme la cuota diaria de Alpha Vantage.
-        Devuelve (resumen, error). `resumen` es None si no se hizo nada.
-        """
         if not os.environ.get("MARKET_DATA_API_KEY"):
             return None, "MARKET_DATA_API_KEY no está configurada."
 
@@ -270,14 +238,6 @@ class AccionServicio:
 
         return cls.refrescar_cotizaciones(forzar=True), None
 
-
-        """Reclama con un UPDATE atómico las cotizaciones que este proceso debe refrescar.
-
-        Entre varios workers, solo el que gana el UPDATE (rowcount == 1) pide esa
-        acción a Alpha Vantage; los demás siguen sirviendo el dato guardado.
-        Hace commit, así que SOLO debe llamarse desde rutas de lectura
-        (nunca en medio de una compra/venta, que tiene una fila bloqueada).
-        """
         ahora = cls._ahora()
         limite_vigencia = ahora - timedelta(seconds=cls._vigencia_segundos())
         limite_reintento = ahora - timedelta(seconds=cls._reintento_segundos())
