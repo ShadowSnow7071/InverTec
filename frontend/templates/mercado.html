@@ -175,7 +175,8 @@
       fila.dataset.volatilidad = datos.volatilidad_porcentaje;
       fila.dataset.nombreCompleto = datos.nombre_empresa;
     } catch (error) {
-      // Si falla la llamada al servidor, se mantiene el guion por defecto sin interrumpir la interfaz
+      // Ignorado intencionalmente: si la API falla (error de red, servidor caído), se mantiene el guion "—"
+      // en la columna de volatilidad. El usuario puede seguir interactuando sin problemas.
     }
   }
   document.querySelectorAll("#tabla-mercado tbody tr").forEach(cargarRiesgo);
