@@ -257,7 +257,9 @@
 
         location.reload();
       } catch (error) {
+        console.error("Error al actualizar el mercado:", error);
         alert("No se pudo actualizar, revisa tu conexión.");
+      } finally {
         btnActualizarMercado.disabled = false;
         btnActualizarMercado.innerHTML = textoOriginal;
       }
