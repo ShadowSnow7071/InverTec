@@ -57,17 +57,30 @@ class AccionServicio:
     # Si un refresco falla (límite agotado, red caída), no se reintenta hasta
     # que pasen estos segundos, para no gastar peticiones en cada visita.
     _REINTENTO_SEGUNDOS_DEFECTO = 60 * 15
+    # Enfriamiento del botón "Actualizar" manual de Mercado, para que un doble
+    # clic (o dos administradores a la vez) no gaste la cuota diaria completa.
+    _ENFRIAMIENTO_MANUAL_SEGUNDOS = 60 * 5
     # Alpha Vantage limita a ~1 petición por segundo en el plan gratuito.
     _PAUSA_ENTRE_PETICIONES = 1.2
+
+    @staticmethod
+    def _segundos_de_entorno(nombre, defecto):
+        # Una variable vacía (`NOMBRE=`), con texto o con un número <= 0 no debe
+        # tumbar la app: en esos casos se usa el valor por defecto.
+        try:
+            valor = int(os.environ.get(nombre, "").strip())
+        except ValueError:
+            return defecto
+        return valor if valor > 0 else defecto
 
     @classmethod
     def _vigencia_segundos(cls):
         # Misma variable de entorno de siempre, para no romper la config de Railway.
-        return int(os.environ.get("MARKET_DATA_CACHE_SEGUNDOS", cls._VIGENCIA_SEGUNDOS_DEFECTO))
+        return cls._segundos_de_entorno("MARKET_DATA_CACHE_SEGUNDOS", cls._VIGENCIA_SEGUNDOS_DEFECTO)
 
     @classmethod
     def _reintento_segundos(cls):
-        return int(os.environ.get("MARKET_DATA_REINTENTO_SEGUNDOS", cls._REINTENTO_SEGUNDOS_DEFECTO))
+        return cls._segundos_de_entorno("MARKET_DATA_REINTENTO_SEGUNDOS", cls._REINTENTO_SEGUNDOS_DEFECTO)
 
     @staticmethod
     def _ahora():
@@ -237,7 +250,27 @@ class AccionServicio:
         return cls._descargar_y_guardar(tickers, pausa)
 
     @classmethod
-    def _reclamar_vencidas(cls, filas):
+    def refrescar_manual(cls):
+        """Refresco manual disparado por el botón 'Actualizar' de Mercado (solo admin).
+
+        A diferencia de `refrescar_cotizaciones`, respeta un enfriamiento fijo
+        desde la última vez que se pidió TODO el catálogo con `forzar=True`,
+        para que un doble clic no queme la cuota diaria de Alpha Vantage.
+        Devuelve (resumen, error). `resumen` es None si no se hizo nada.
+        """
+        if not os.environ.get("MARKET_DATA_API_KEY"):
+            return None, "MARKET_DATA_API_KEY no está configurada."
+
+        ultima = cls.ultima_actualizacion()
+        if ultima is not None:
+            transcurridos = (cls._ahora() - ultima).total_seconds()
+            faltan = cls._ENFRIAMIENTO_MANUAL_SEGUNDOS - transcurridos
+            if faltan > 0:
+                return None, f"Espera {int(faltan) + 1}s antes de volver a actualizar."
+
+        return cls.refrescar_cotizaciones(forzar=True), None
+
+
         """Reclama con un UPDATE atómico las cotizaciones que este proceso debe refrescar.
 
         Entre varios workers, solo el que gana el UPDATE (rowcount == 1) pide esa

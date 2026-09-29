@@ -4,14 +4,33 @@ from decimal import Decimal
 import pytest
 
 from backend.conexion import db
-from backend.modelos import Cotizacion
+from backend.modelos import Cotizacion, Usuario
 from backend.servicios.acciones import CATALOGO, PRECIOS_BASE, AccionServicio
+
+
+def registrar_y_obtener_token(client, correo):
+    respuesta = client.post(
+        "/api/auth/registro",
+        json={"nombre": correo.split("@")[0], "correo": correo, "password": "Secreto12!"},
+    )
+    return respuesta.get_json()["access_token"]
+
+
+def hacer_administrador(app, correo):
+    with app.app_context():
+        usuario = db.session.query(Usuario).filter_by(correo=correo).one()
+        usuario.rol = "administrador"
+        db.session.commit()
 
 
 @pytest.fixture(autouse=True)
 def _con_api_key(monkeypatch):
     # Se simula tener MARKET_DATA_API_KEY para ejercitar la ruta de refresco real.
     monkeypatch.setenv("MARKET_DATA_API_KEY", "clave-de-prueba")
+    # Aislar las pruebas del .env local: si tienes estas variables definidas
+    # (o vacías) en tu máquina, no deben cambiar el resultado de las pruebas.
+    monkeypatch.delenv("MARKET_DATA_CACHE_SEGUNDOS", raising=False)
+    monkeypatch.delenv("MARKET_DATA_REINTENTO_SEGUNDOS", raising=False)
     monkeypatch.setattr(AccionServicio, "_PAUSA_ENTRE_PETICIONES", 0)
 
 
@@ -38,6 +57,15 @@ def test_vigencia_por_defecto_es_12_horas():
 def test_vigencia_es_configurable_por_variable_de_entorno(monkeypatch):
     monkeypatch.setenv("MARKET_DATA_CACHE_SEGUNDOS", "300")
     assert AccionServicio._vigencia_segundos() == 300
+
+
+@pytest.mark.parametrize("valor", ["", "   ", "abc", "0", "-5"])
+def test_variables_vacias_o_invalidas_usan_el_valor_por_defecto(monkeypatch, valor):
+    monkeypatch.setenv("MARKET_DATA_CACHE_SEGUNDOS", valor)
+    monkeypatch.setenv("MARKET_DATA_REINTENTO_SEGUNDOS", valor)
+
+    assert AccionServicio._vigencia_segundos() == 60 * 60 * 12
+    assert AccionServicio._reintento_segundos() == 60 * 15
 
 
 def test_reintento_por_defecto_es_15_minutos_y_configurable(monkeypatch):
@@ -261,3 +289,61 @@ def test_comando_cli_sin_api_key_avisa_y_falla(app, monkeypatch):
 
     assert resultado.exit_code == 1
     assert "MARKET_DATA_API_KEY" in resultado.output
+
+
+def test_actualizar_endpoint_requiere_rol_administrador(client):
+    token = registrar_y_obtener_token(client, "no_admin_actualizar@example.com")
+
+    respuesta = client.post("/api/acciones/actualizar", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 403
+
+
+def test_actualizar_endpoint_sin_login_devuelve_401(client):
+    assert client.post("/api/acciones/actualizar").status_code == 401
+
+
+def test_actualizar_endpoint_funciona_para_admin(client, app, monkeypatch):
+    monkeypatch.setenv("MARKET_DATA_API_KEY", "clave-de-prueba")
+    monkeypatch.setattr(AccionServicio, "_PAUSA_ENTRE_PETICIONES", 0)
+    monkeypatch.setattr(
+        AccionServicio,
+        "_cotizacion_externa",
+        staticmethod(lambda ticker: {"precio": "111.00", "cambio_porcentaje": "1.00"}),
+    )
+    token = registrar_y_obtener_token(client, "admin_actualizar@example.com")
+    hacer_administrador(app, "admin_actualizar@example.com")
+
+    respuesta = client.post("/api/acciones/actualizar", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.get_json()
+    assert sorted(cuerpo["actualizadas"]) == sorted(CATALOGO)
+    assert cuerpo["fallidas"] == []
+    assert cuerpo["ultima_actualizacion"] is not None
+
+
+def test_actualizar_endpoint_respeta_el_enfriamiento(client, app, monkeypatch):
+    monkeypatch.setenv("MARKET_DATA_API_KEY", "clave-de-prueba")
+    with app.app_context():
+        db.session.add(
+            Cotizacion(ticker="AAPL", precio=Decimal("300.00"), actualizado_en=AccionServicio._ahora())
+        )
+        db.session.commit()
+    token = registrar_y_obtener_token(client, "admin_enfriamiento@example.com")
+    hacer_administrador(app, "admin_enfriamiento@example.com")
+
+    respuesta = client.post("/api/acciones/actualizar", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 429
+    assert "Espera" in respuesta.get_json()["error"]
+
+
+def test_actualizar_endpoint_sin_api_key_devuelve_503(client, app, monkeypatch):
+    monkeypatch.delenv("MARKET_DATA_API_KEY", raising=False)
+    token = registrar_y_obtener_token(client, "admin_sin_key@example.com")
+    hacer_administrador(app, "admin_sin_key@example.com")
+
+    respuesta = client.post("/api/acciones/actualizar", headers={"Authorization": f"Bearer {token}"})
+
+    assert respuesta.status_code == 503

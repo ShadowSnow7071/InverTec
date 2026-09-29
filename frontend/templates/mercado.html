@@ -18,10 +18,22 @@
 
 <div class="row g-4">
   <div class="col-lg-8">
-    <div class="market-search mb-3">
-      <label class="visually-hidden" for="buscar-acciones">Buscar acciones</label>
-      <span aria-hidden="true">⌕</span>
-      <input class="form-control" id="buscar-acciones" type="search" placeholder="Buscar AAPL o Apple..." />
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+      <div class="market-search flex-grow-1 mb-0">
+        <label class="visually-hidden" for="buscar-acciones">Buscar acciones</label>
+        <span aria-hidden="true">⌕</span>
+        <input class="form-control" id="buscar-acciones" type="search" placeholder="Buscar AAPL o Apple..." />
+      </div>
+      {% if usuario_actual.rol.value == 'administrador' %}
+      <button
+        type="button"
+        class="btn btn-outline-light btn-sm text-nowrap"
+        id="btn-actualizar-mercado"
+        title="Pedir cotizaciones reales a Alpha Vantage ahora mismo"
+      >
+        <span id="icono-actualizar-mercado" aria-hidden="true">⟳</span> Actualizar
+      </button>
+      {% endif %}
     </div>
     <div class="table-responsive">
       <table class="table align-middle" id="tabla-mercado">
@@ -32,12 +44,11 @@
             <th class="text-end">Precio ref.</th>
             <th class="text-end">Cambio</th>
             <th class="text-end">Volatilidad</th>
-            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
           {% for accion in catalogo %}
-          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}">
+          <tr data-ticker="{{ accion.ticker }}" data-nombre="{{ accion.nombre_empresa }}" data-precio="{{ accion.precio_actual }}" role="button">
             <td><span class="badge text-bg-secondary">{{ accion.ticker }}</span></td>
             <td>{{ accion.nombre_empresa }}</td>
             <td class="text-end" data-precio-referencia>USD {{ accion.precio_actual }}</td>
@@ -51,11 +62,6 @@
               {% endif %}
             </td>
             <td class="text-end"><span class="badge text-bg-secondary" data-volatilidad-badge>—</span></td>
-            <td class="text-end">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-ver-detalle>
-                Ver detalle<span class="visually-hidden"> de {{ accion.ticker }}</span>
-              </button>
-            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -206,7 +212,50 @@
   }
 
   document.querySelectorAll("#tabla-mercado tbody tr").forEach((fila) => {
-    fila.querySelector("[data-ver-detalle]").addEventListener("click", () => mostrarDetalle(fila));
+    fila.addEventListener("click", () => mostrarDetalle(fila));
   });
+
+  const btnActualizarMercado = document.getElementById("btn-actualizar-mercado");
+  if (btnActualizarMercado) {
+    function tokenCsrf() {
+      const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrf_access_token="));
+      return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+    }
+
+    btnActualizarMercado.addEventListener("click", async () => {
+      const icono = document.getElementById("icono-actualizar-mercado");
+      btnActualizarMercado.disabled = true;
+      const textoOriginal = btnActualizarMercado.innerHTML;
+      btnActualizarMercado.innerHTML = "Actualizando…";
+
+      try {
+        const respuesta = await fetch("/api/acciones/actualizar", {
+          method: "POST",
+          headers: { "X-CSRF-TOKEN": tokenCsrf() },
+        });
+        const datos = await respuesta.json().catch(() => ({}));
+
+        if (!respuesta.ok) {
+          alert(datos.error || "No se pudo actualizar las cotizaciones.");
+          btnActualizarMercado.disabled = false;
+          btnActualizarMercado.innerHTML = textoOriginal;
+          return;
+        }
+
+        if (datos.fallidas && datos.fallidas.length) {
+          alert(
+            `Se actualizaron ${datos.actualizadas.length} de ${datos.actualizadas.length + datos.fallidas.length}. ` +
+            `Sin actualizar: ${datos.fallidas.join(", ")} (posible límite diario de Alpha Vantage).`
+          );
+        }
+
+        location.reload();
+      } catch (error) {
+        alert("No se pudo actualizar, revisa tu conexión.");
+        btnActualizarMercado.disabled = false;
+        btnActualizarMercado.innerHTML = textoOriginal;
+      }
+    });
+  }
 </script>
 {% endblock %}
